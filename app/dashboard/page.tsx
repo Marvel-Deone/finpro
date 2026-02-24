@@ -82,36 +82,86 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
     const [examModalOpen, setExamModalOpen] = useState(false);
     const [stockModalOpen, setStockModalOpen] = useState(false);
     const [exams, setExams] = useState<any>([]);
+    const [stocks, setStocks] = useState<any[]>([])
+    const [loans, setLoans] = useState<any[]>([])
 
     useEffect(() => {
-        const fetchExams = async () => {
-            try {
-                const res = await fetch('/api/exams', {
-                    credentials: 'include',
-                })
-
-                const data = await res.json()
-
-                if (!res.ok) {
-                    throw new Error(data.error)
-                }
-
-                setExams(data)
-
-                console.log('datahhh:', data);
-
-            } catch (err: any) {
-                console.error(err.message)
-            }
-        }
-
+        fetchStocks()
         fetchExams()
+        fetchLoans()
     }, [])
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        // handle form submission
-    };
+    const fetchExams = async () => {
+        try {
+            const res = await fetch('/api/exams', {
+                credentials: 'include',
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error)
+            }
+
+            setExams(data)
+
+            console.log('datahhh:', data);
+
+        } catch (err: any) {
+            console.error(err.message)
+        }
+    }
+
+    const fetchStocks = async () => {
+        try {
+            const res = await fetch('/api/stocks', {
+                credentials: 'include',
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error)
+
+            setStocks(data)
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    const fetchLoans = async () => {
+        try {
+            const res = await fetch('/api/loans', {
+                credentials: 'include',
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error)
+
+            // Transform DB data → UI shape
+            const formatted = data.map((loan: any) => {
+                const termMonths = Number(loan.term)
+                const monthly = termMonths
+                    ? loan.principal / termMonths
+                    : loan.principal
+
+                return {
+                    id: loan.id,
+                    category: "Loan",
+                    date: new Date(loan.createdAt).toLocaleDateString(),
+                    lead: "You",
+                    title: loan.ledger_identity,
+                    description: loan.operational_narrative,
+                    monthlyInstallment: `₦${monthly.toLocaleString()}`,
+                    totalValue: `₦${loan.principal.toLocaleString()}`,
+                }
+            })
+
+            setLoans(formatted)
+        } catch (err) {
+            console.error(err)
+        }
+    }
 
     const handleExamSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -138,7 +188,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),
-                credentials: 'include', // ensures cookies (JWT) are sent
+                credentials: 'include',
             })
 
             const data = await res.json()
@@ -148,9 +198,89 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
             }
 
             alert('Exam recorded successfully!')
+            fetchExams()
             setExamModalOpen(false)
         } catch (err: any) {
             console.log(err.message)
+        }
+    }
+
+    const handleStockSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+
+        const formData = new FormData(e.currentTarget)
+
+        const payload = {
+            asset_identity: formData.get('name'),
+            operational_narrative: formData.get('narrative'),
+            count: Number(formData.get('quantity')),
+            unit: formData.get('unit'),
+            purchase_value: Number(formData.get('totalAmount')),
+            category: formData.get('category'),
+            asset_proof: "", // handle upload later
+        }
+
+        try {
+            const res = await fetch('/api/stocks', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error)
+
+            setStockModalOpen(false)
+            fetchStocks()
+            setStockModalOpen(false)
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    const handleLoanSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+
+        const formData = new FormData(e.currentTarget)
+
+        const principal = formData.get("principal")
+
+        if (!principal) return
+
+        // const payload = {
+        //     ledger_identity: formData.get("ledger_identity"),
+        //     operational_narrative: formData.get("narrative"),
+        //     principal: Number(principal),
+        //     term: formData.get("term"),
+        //     liability_proof: "",
+        // }
+
+
+        const payload = {
+            ledger_identity: String(formData.get("ledger_identity") ?? ""),
+            operational_narrative: String(formData.get("operational_narrative") ?? ""),
+            principal: Number(formData.get("principal")),
+            term: String(formData.get("term") ?? ""),
+            category: "Loan", // or from formData if you add it
+            liability_proof: String(formData.get("liability_proof") ?? ""),
+        }
+        
+        const res = await fetch("/api/loans", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        })
+
+        if (res.ok) {
+            setLiabilityModalOpen(false)
+            fetchLoans()
         }
     }
 
@@ -512,7 +642,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
 
                     {/* Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-left">
-                    {/* CARD 1 */}
+                        {/* CARD 1 */}
                         {exams.map((exam: any) => (
                             <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:border-red-500 transition-all">
                                 <div className="flex justify-between items-start">
@@ -566,7 +696,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                     </div>
                                 </div>
                             </div>
-                        ) )}
+                        ))}
                     </div>
 
                     {/* Exam's modal */}
@@ -711,172 +841,57 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                     {/* Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                         {/* CARD 1 */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm group hover:border-red-500 transition-all">
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                                    Hardware
-                                </span>
-
-                                <div className="flex flex-col items-end gap-1 text-slate-500">
-                                    <button className="text-emerald-500 hover:scale-110 transition-transform">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                            <path d="m9 15 2 2 4-4" />
-                                        </svg>
-                                    </button>
-                                    <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter">
-                                        Auth: Ifeanyi
+                        {stocks.map((stock) => (
+                            <div
+                                key={stock.id}
+                                className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm group hover:border-red-500 transition-all"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
+                                        {stock.category}
                                     </span>
+
+                                    <div className="flex flex-col items-end gap-1 text-slate-500">
+                                        <button title="View Proof" className="text-emerald-500 hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                                                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                                                <path d="m9 15 2 2 4-4" />
+                                            </svg>
+                                        </button>
+                                        <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
+                                            Auth: Ifeanyi
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <h4 className="text-base font-bold mt-4 uppercase text-slate-900 truncate">
+                                    {stock.asset_identity}
+                                </h4>
+
+                                <p className="text-[11px] text-slate-500 mt-2 font-medium line-clamp-2 leading-relaxed">
+                                    {stock.operational_narrative}
+                                </p>
+
+                                <div className="mt-8 pt-6 border-t border-slate-50 flex items-end justify-between">
+                                    <div>
+                                        <p className="text-2xl font-bold">{stock.count}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                            Unit(s)
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5 tracking-widest">
+                                            Strategic Value
+                                        </p>
+                                        <p className="text-base font-bold text-red-600">
+                                            ₦{stock.purchase_value.toLocaleString()}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-
-                            <h4 className="text-base font-bold mt-4 uppercase text-slate-900 truncate">
-                                LaserJet Pro 400
-                            </h4>
-
-                            <p className="text-[11px] text-slate-500 mt-2 font-medium line-clamp-2 leading-relaxed">
-                                Primary business printer for central JAMB center operations.
-                            </p>
-
-                            <div className="mt-8 pt-6 border-t border-slate-50 flex items-end justify-between">
-                                <div>
-                                    <p className="text-2xl font-bold">1</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Unit
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5 tracking-widest">
-                                        Strategic Value
-                                    </p>
-                                    <p className="text-base font-bold text-red-600">₦100,000</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* CARD 2 */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm group hover:border-red-500 transition-all">
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                                    Infrastructure
-                                </span>
-
-                                <div className="flex flex-col items-end gap-1 text-slate-500">
-                                    <button className="text-emerald-500 hover:scale-110 transition-transform">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                            <path d="m9 15 2 2 4-4" />
-                                        </svg>
-                                    </button>
-                                    <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter">
-                                        Auth: Tunde
-                                    </span>
-                                </div>
-                            </div>
-
-                            <h4 className="text-base font-bold mt-4 uppercase text-slate-900 truncate">
-                                Oxford Ceiling Fans
-                            </h4>
-
-                            <p className="text-[11px] text-slate-500 mt-2 font-medium line-clamp-2 leading-relaxed">
-                                Exam hall infrastructure upgrade (8 units).
-                            </p>
-
-                            <div className="mt-8 pt-6 border-t border-slate-50 flex items-end justify-between">
-                                <div>
-                                    <p className="text-2xl font-bold">8</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Units
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5 tracking-widest">
-                                        Strategic Value
-                                    </p>
-                                    <p className="text-base font-bold text-red-600">₦35,000</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* CARD 3 */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm group hover:border-red-500 transition-all">
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                                    Operations
-                                </span>
-
-                                <div className="flex flex-col items-end gap-1 text-slate-500">
-                                    <button className="text-emerald-500 hover:scale-110 transition-transform">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                            <path d="m9 15 2 2 4-4" />
-                                        </svg>
-                                    </button>
-                                    <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter">
-                                        Auth: Tunde
-                                    </span>
-                                </div>
-                            </div>
-
-                            <h4 className="text-base font-bold mt-4 uppercase text-slate-900 truncate">
-                                Diesel Fuel Reserve
-                            </h4>
-
-                            <p className="text-[11px] text-slate-500 mt-2 font-medium line-clamp-2 leading-relaxed">
-                                Operations backup for 10-day intensive cycle.
-                            </p>
-
-                            <div className="mt-8 pt-6 border-t border-slate-50 flex items-end justify-between">
-                                <div>
-                                    <p className="text-2xl font-bold">23</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Litres
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5 tracking-widest">
-                                        Strategic Value
-                                    </p>
-                                    <p className="text-base font-bold text-red-600">₦1,100</p>
-                                </div>
-                            </div>
-                        </div>
+                        ))}
                     </div>
 
                     {stockModalOpen && (
@@ -909,7 +924,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                 <div className="p-8 space-y-6 text-left">
                                     <form
                                         className="space-y-4 text-left text-slate-800 font-bold"
-                                    // onSubmit={handleSubmit}
+                                        onSubmit={handleStockSubmit}
                                     >
                                         {/* Asset Identity */}
                                         <div className="flex flex-col gap-2 w-full text-left font-semibold">
@@ -1197,7 +1212,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
         case "liabilities":
             return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 text-left">
-                    {liabilities.map((item, index) => (
+                    {loans.map((item, index) => (
                         <div
                             key={index}
                             className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-sm hover:border-red-600 transition-all relative overflow-hidden group"
@@ -1333,14 +1348,14 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                 </div>
 
                                 <div className="p-8 space-y-6 text-left">
-                                    <form className="space-y-4 text-left text-slate-800 font-bold">
+                                    <form onSubmit={handleLoanSubmit} className="space-y-4 text-left text-slate-800 font-bold">
                                         <div className="flex flex-col gap-2 w-full font-semibold text-left">
                                             <label className="text-xs text-slate-500 ml-1 uppercase tracking-wider">
                                                 Lender Identity
                                             </label>
                                             <input
                                                 className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
-                                                name="lender"
+                                                name="ledger_identity"
                                                 placeholder="e.g. Bank"
                                                 required
                                             />
@@ -1352,7 +1367,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                             </label>
                                             <input
                                                 className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
-                                                name="narrative"
+                                                name="operational_narrative"
                                                 placeholder="Operational use..."
                                                 required
                                             />
@@ -1365,7 +1380,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                                 </label>
                                                 <input
                                                     className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
-                                                    name="amount"
+                                                    name="principal"
                                                     type="number"
                                                     required
                                                 />
@@ -1412,6 +1427,13 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                                 </span>
                                             </div>
                                         </div>
+
+                                        <input
+                                            type="text"
+                                            name="liability_proof"
+                                            defaultValue="https://example.com/temp.pdf"
+                                            hidden
+                                        />
 
                                         <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest px-2 italic text-center">
                                             Strategic Entry Point Available for Final Processing

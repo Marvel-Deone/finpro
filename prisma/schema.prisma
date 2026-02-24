@@ -66,6 +66,7 @@ model Loan {
   ledger_identity       String
   operational_narrative String
   principal             Float
+  category              String
   term                  String
   liability_proof       String
   userId                String
