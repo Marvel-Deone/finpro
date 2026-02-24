@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String   @id @default(uuid())
+  identity   String   @unique
+  password   String
+  created_at DateTime @default(now())
+
+  loans   Loan[]
+  stocks  Stock[]
+  history History[]
+  exams   Exam[]
+}
+
+model Category {
+  id               String   @id @default(uuid())
+  name             String
+  seat_throughput  String
+  project_inflow   String
+  iventory         String
+  monthly_dept     String
+  net_capital      String
+  compliance_audit String
+  strategic_ledger String
+  asset            Int
+  liability        Int
+  created_at       DateTime @default(now())
+
+  // exams Exam[]
+}
+
+model Exam {
+  id               String   @id @default(uuid())
+  session_name     String
+  total_candidates Int
+  document_proof   String
+  category         String   @default("JAMB")
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  created_at       DateTime @default(now())
+}
+
+model Stock {
+  id                    String @id @default(uuid())
+  asset_identity        String
+  operational_narrative String
+  count                 Int
+  purchase_value        Float
+  category              String
+  unit                  String
+  asset_proof           String
+  userId                String
+  user                  User   @relation(fields: [userId], references: [id])
+}
+
+model Loan {
+  id                    String   @id @default(uuid())
+  ledger_identity       String
+  operational_narrative String
+  principal             Float
+  term                  String
+  liability_proof       String
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id])
+  createdAt             DateTime @default(now())
+}
+
+model History {
+  id        String   @id @default(uuid())
+  title     String
+  desc      String
+  action    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}

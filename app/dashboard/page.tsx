@@ -81,11 +81,78 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
     const [liabilityModalOpen, setLiabilityModalOpen] = useState(false);
     const [examModalOpen, setExamModalOpen] = useState(false);
     const [stockModalOpen, setStockModalOpen] = useState(false);
+    const [exams, setExams] = useState<any>([]);
+
+    useEffect(() => {
+        const fetchExams = async () => {
+            try {
+                const res = await fetch('/api/exams', {
+                    credentials: 'include',
+                })
+
+                const data = await res.json()
+
+                if (!res.ok) {
+                    throw new Error(data.error)
+                }
+
+                setExams(data)
+
+                console.log('datahhh:', data);
+
+            } catch (err: any) {
+                console.error(err.message)
+            }
+        }
+
+        fetchExams()
+    }, [])
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         // handle form submission
     };
+
+    const handleExamSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        console.log('Hello', e.target);
+
+        try {
+            const target = e.target as typeof e.target & {
+                category: { value: string }
+                sessionName: { value: string }
+                studentsCount: { value: string }
+                documentProof: { value: string } // We'll use a URL or temp
+            }
+
+            const payload = {
+                category: target.category.value,
+                session_name: target.sessionName.value,
+                total_candidates: parseInt(target.studentsCount.value, 10),
+                document_proof: target.documentProof.value || 'https://example.com/temp.pdf',
+            }
+
+            const res = await fetch('/api/exams', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+                credentials: 'include', // ensures cookies (JWT) are sent
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Something went wrong')
+            }
+
+            alert('Exam recorded successfully!')
+            setExamModalOpen(false)
+        } catch (err: any) {
+            console.log(err.message)
+        }
+    }
 
     switch (activeTab) {
         case "overview":
@@ -445,167 +512,61 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
 
                     {/* Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-left">
-                        {/* CARD 1 */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:border-red-500 transition-all">
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                                    JAMB
-                                </span>
-
-                                <div className="flex flex-col items-end gap-1 text-slate-500">
-                                    <button title="View Proof" className="text-emerald-500 hover:scale-110 transition-transform">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                            <path d="m9 15 2 2 4-4" />
-                                        </svg>
-                                    </button>
-                                    <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
-                                        Auth: Tunde
-                                    </span>
-                                </div>
-                            </div>
-
-                            <h4 className="text-base font-bold mt-4 uppercase text-slate-900">
-                                Batch A - Morning
-                            </h4>
-
-                            <div className="mt-10 flex items-end justify-between">
-                                <div>
-                                    <p className="text-3xl font-bold">150</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Candidates
-                                    </p>
-                                </div>
-
-                                <div className="text-slate-300 font-bold text-[9px] flex flex-col items-end gap-1 uppercase">
-                                    <span className="flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <polyline points="12 6 12 12 16 14" />
-                                        </svg>
-                                        26 Jan, 09:30 am
+                    {/* CARD 1 */}
+                        {exams.map((exam: any) => (
+                            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:border-red-500 transition-all">
+                                <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
+                                        {exam.category}
                                     </span>
 
-                                    <button className="text-red-600 hover:underline flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M12 15V3" />
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                            <path d="m7 10 5 5 5-5" />
-                                        </svg>
-                                        Open Proof
-                                    </button>
+                                    <div className="flex flex-col items-end gap-1 text-slate-500">
+                                        <button title="View Proof" className="text-emerald-500 hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                                                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                                                <path d="m9 15 2 2 4-4" />
+                                            </svg>
+                                        </button>
+                                        <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
+                                            Auth: Tunde
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <h4 className="text-base font-bold mt-4 uppercase text-slate-900">
+                                    {exam.session_name}
+                                </h4>
+
+                                <div className="mt-10 flex items-end justify-between">
+                                    <div>
+                                        <p className="text-3xl font-bold">{exam.total_candidates}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                            Candidates
+                                        </p>
+                                    </div>
+
+                                    <div className="text-slate-300 font-bold text-[9px] flex flex-col items-end gap-1 uppercase">
+                                        <span className="flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <polyline points="12 6 12 12 16 14" />
+                                            </svg>
+                                            {exam.created_at && `• Recorded ${Math.floor((Date.now() - new Date(exam.created_at).getTime()) / (1000 * 60 * 60))} hours ago`}
+                                        </span>
+
+                                        <button className="text-red-600 hover:underline flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 15V3" />
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <path d="m7 10 5 5 5-5" />
+                                            </svg>
+                                            Open Proof
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* CARD 2 */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:border-red-500 transition-all">
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                                    JAMB
-                                </span>
-
-                                <div className="flex flex-col items-end gap-1 text-slate-500">
-                                    <button title="View Proof" className="text-emerald-500 hover:scale-110 transition-transform">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                            <path d="m9 15 2 2 4-4" />
-                                        </svg>
-                                    </button>
-                                    <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
-                                        Auth: Tunde
-                                    </span>
-                                </div>
-                            </div>
-
-                            <h4 className="text-base font-bold mt-4 uppercase text-slate-900">
-                                Batch B - Afternoon
-                            </h4>
-
-                            <div className="mt-10 flex items-end justify-between">
-                                <div>
-                                    <p className="text-3xl font-bold">150</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Candidates
-                                    </p>
-                                </div>
-
-                                <div className="text-slate-300 font-bold text-[9px] flex flex-col items-end gap-1 uppercase">
-                                    <span className="flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <polyline points="12 6 12 12 16 14" />
-                                        </svg>
-                                        26 Jan, 02:00 pm
-                                    </span>
-
-                                    <button className="text-red-600 hover:underline flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M12 15V3" />
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                            <path d="m7 10 5 5 5-5" />
-                                        </svg>
-                                        Open Proof
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* CARD 3 */}
-                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group hover:border-red-500 transition-all">
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                                    ABU DLI
-                                </span>
-
-                                <div className="flex flex-col items-end gap-1 text-slate-500">
-                                    <button title="View Proof" className="text-emerald-500 hover:scale-110 transition-transform">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                            <path d="m9 15 2 2 4-4" />
-                                        </svg>
-                                    </button>
-                                    <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
-                                        Auth: Ifeanyi
-                                    </span>
-                                </div>
-                            </div>
-
-                            <h4 className="text-base font-bold mt-4 uppercase text-slate-900">
-                                Diet Exam Day 1
-                            </h4>
-
-                            <div className="mt-10 flex items-end justify-between">
-                                <div>
-                                    <p className="text-3xl font-bold">85</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        Candidates
-                                    </p>
-                                </div>
-
-                                <div className="text-slate-300 font-bold text-[9px] flex flex-col items-end gap-1 uppercase">
-                                    <span className="flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <polyline points="12 6 12 12 16 14" />
-                                        </svg>
-                                        9 Jan, 11:00 am
-                                    </span>
-
-                                    <button className="text-red-600 hover:underline flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M12 15V3" />
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                            <path d="m7 10 5 5 5-5" />
-                                        </svg>
-                                        Open Proof
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        ) )}
                     </div>
 
                     {/* Exam's modal */}
@@ -640,14 +601,14 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                 </div>
 
                                 <div className="p-8 space-y-6 text-left">
-                                    <form className="space-y-4 text-left text-slate-800">
+                                    <form className="space-y-4 text-left text-slate-800" onSubmit={handleExamSubmit}>
                                         <div className="flex flex-col gap-2 text-left">
                                             <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">
                                                 Exam Category
                                             </label>
 
                                             <select
-                                                name="examType"
+                                                name="category"
                                                 className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-bold outline-none text-left"
                                             >
                                                 <option>JAMB</option>
@@ -709,6 +670,12 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                                 </span>
                                             </div>
                                         </div>
+                                        <input
+                                            type="text"
+                                            name="documentProof"
+                                            defaultValue="https://example.com/temp.pdf"
+                                            hidden
+                                        />
 
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 italic text-center">
                                             Strategic Entry Point Available for Final Processing
@@ -942,7 +909,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                                 <div className="p-8 space-y-6 text-left">
                                     <form
                                         className="space-y-4 text-left text-slate-800 font-bold"
-                                        // onSubmit={handleSubmit}
+                                    // onSubmit={handleSubmit}
                                     >
                                         {/* Asset Identity */}
                                         <div className="flex flex-col gap-2 w-full text-left font-semibold">
