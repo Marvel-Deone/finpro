@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createExam, getExams } from '@/services/exam.service'
 import { createExamSchema } from '@/validations/exam.schema'
-import { verifyToken } from '@/lib/jwt'
-import { cookies } from 'next/headers'
 import { getAuthenticatedUser, verifyOrgOwnership } from '@/lib/auth'
 
 export async function GET(req: Request) {
@@ -56,19 +54,6 @@ export async function POST(req: Request) {
 
         // Validate only exam fields (not orgId)
         const validated = createExamSchema.parse(examData)
-
-        // Get token from cookie
-        // const cookieStore = await cookies()
-        // const token = cookieStore.get("token")?.value
-
-        // if (!token) {
-        //     return NextResponse.json(
-        //         { error: "Unauthorized" },
-        //         { status: 401 }
-        //     )
-        // }
-
-        // const decoded = verifyToken(token) as { userId: string }
 
         // Verify org belongs to logged-in user
         const user = await getAuthenticatedUser(req)

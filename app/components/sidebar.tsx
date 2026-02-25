@@ -10,13 +10,7 @@ const Sidebar = ({
     selectedOrg: Org | null;
     onOrgChange: (org: Org) => void;
 }) => {
-    // const [selectedOrg, setSelectedOrg] = useState<Org[]>([]);
     const [orgs, setOrgs] = useState<any>([])
-
-    // const handleOrgChange = (org: any) => {
-    //     console.log('selected org:', org);
-    //     setSelectedOrg(org);
-    // }
 
     useEffect(() => {
         fetchOrg()
@@ -34,6 +28,9 @@ const Sidebar = ({
             }
 
             setOrgs(data);
+            if (data.length > 0) {
+                onOrgChange(data[0]);
+            }
         } catch (err: any) {
             console.error(err.message);
         }

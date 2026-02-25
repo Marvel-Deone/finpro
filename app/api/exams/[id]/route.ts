@@ -9,9 +9,7 @@ import { verifyToken } from '@/lib/jwt'
 import { cookies } from 'next/headers'
 import { verifyOrgOwnership } from '@/lib/auth'
 
-/**
- * GET single exam
- */
+// GET single exam
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
@@ -52,9 +50,7 @@ export async function GET(
   }
 }
 
-/**
- * UPDATE exam
- */
+// UPDATE exam
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
@@ -101,9 +97,7 @@ export async function PUT(
   }
 }
 
-/**
- * DELETE exam
- */
+// DELETE exam
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
