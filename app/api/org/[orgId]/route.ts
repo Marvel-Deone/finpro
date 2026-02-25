@@ -288,10 +288,12 @@ import { updateOrgSchema } from "@/validations/org.schema";
 // GET /api/org/[id]
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } } // plain object, NOT Promise
+  // context: { params: { id: string } } // plain object, NOT Promise
+  // context: { params: { orgId: string } }
+  context: { params: Promise<{ orgId: string }> }
 ) {
   try {
-    const { id } = context.params; // no await
+    const { orgId: id } = await context.params; //
 
     const user = await getAuthenticatedUser(request);
 
@@ -314,10 +316,11 @@ export async function GET(
 // PATCH /api/org/[id]
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } } // plain object
+  // context: { params: { id: string } } // plain object
+ context: { params: Promise<{ orgId: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const { orgId } = await context.params;
 
     const user = await getAuthenticatedUser(request);
 
@@ -328,7 +331,7 @@ export async function PATCH(
     const body = await request.json();
     const validated = updateOrgSchema.parse(body);
 
-    const org = await updateOrg(user.id, id, validated.name);
+    const org = await updateOrg(user.id, orgId, validated.name);
 
     return NextResponse.json(org);
   } catch (error: any) {
@@ -339,10 +342,12 @@ export async function PATCH(
 // DELETE /api/org/[id]
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } } // plain object
+  // context: { params: { id: string } } // plain object
+  // context: { params: { orgId: string } }
+  context: { params: Promise<{ orgId: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const { orgId } = await context.params;
 
     const user = await getAuthenticatedUser(request);
 
@@ -350,7 +355,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await deleteOrg(user.id, id);
+    await deleteOrg(user.id, orgId);
 
     return NextResponse.json({ message: "Organization deleted successfully" }, { status: 200 });
   } catch (error: any) {
