@@ -1,13 +1,42 @@
 "use client"
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+type Org = { id: string; name: string };
 
-const Sidebar = () => {
-    const [selectedExecutive, setSelectedExecutive] = useState<string>("Datforte CBT");
+const Sidebar = ({
+    selectedOrg,
+    onOrgChange,
+}: {
+    selectedOrg: Org | null;
+    onOrgChange: (org: Org) => void;
+}) => {
+    // const [selectedOrg, setSelectedOrg] = useState<Org[]>([]);
+    const [orgs, setOrgs] = useState<any>([])
 
-    const handleExecutiveChange = (executive: string) => {
-        console.log('selected executive:',  executive);
-        setSelectedExecutive(executive);
+    // const handleOrgChange = (org: any) => {
+    //     console.log('selected org:', org);
+    //     setSelectedOrg(org);
+    // }
+
+    useEffect(() => {
+        fetchOrg()
+    }, []);
+
+    const fetchOrg = async () => {
+        try {
+            const res = await fetch('/api/org', {
+                credentials: 'include',
+            })
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error);
+            }
+
+            setOrgs(data);
+        } catch (err: any) {
+            console.error(err.message);
+        }
     }
 
     return (
@@ -18,42 +47,44 @@ const Sidebar = () => {
                 </h3>
 
                 <div className="space-y-1.5 overflow-y-auto pr-2 custom-scrollbar flex-1">
-                    {[
-                        "Datforte CBT",
-                        "D-Degree Digital",
-                        "D-Degree Marketing",
-                        "DDNewsOnline",
-                        "Direct Digital Sales Agent (DDSA)",
-                        "DDComply Application",
-                        "DDTech",
-                        "CBTech",
-                        "Daily Hustle",
-                        "CivilGuard",
-                        "DDRent Application",
-                        "TFO Canada",
-                        "DDNearest Doctors Application",
-                        "AfriSuite Application",
-                        "HECOS Application",
-                        "ASBON E-Commerce Application",
-                        "ELECTRAS Application",
-                        "DDoctTech Software",
-                        "DD-ClipShare",
-                        "FaceReview Application",
-                        "DDMusicPro",
-                        "ABU DLI Project",
-                        "General Operations",
-                    ].map((item, i) => (
-                        <button
-                            key={i}
-                            onClick={() => handleExecutiveChange(item)}
-                            className={`w-full text-left px-4 py-3.5 rounded-xl text-sm font-semibold transition-all ${selectedExecutive === item
+                    {
+                        // [
+                        //     "Datforte CBT",
+                        //     "D-Degree Digital",
+                        //     "D-Degree Marketing",
+                        //     "DDNewsOnline",
+                        //     "Direct Digital Sales Agent (DDSA)",
+                        //     "DDComply Application",
+                        //     "DDTech",
+                        //     "CBTech",
+                        //     "Daily Hustle",
+                        //     "CivilGuard",
+                        //     "DDRent Application",
+                        //     "TFO Canada",
+                        //     "DDNearest Doctors Application",
+                        //     "AfriSuite Application",
+                        //     "HECOS Application",
+                        //     "ASBON E-Commerce Application",
+                        //     "ELECTRAS Application",
+                        //     "DDoctTech Software",
+                        //     "DD-ClipShare",
+                        //     "FaceReview Application",
+                        //     "DDMusicPro",
+                        //     "ABU DLI Project",
+                        //     "General Operations",
+                        // ]
+                        orgs.map((org: { id: string; name: string }) => (
+                            <button
+                                key={org.id}
+                                onClick={() => onOrgChange(org)}
+                                className={`w-full text-left px-4 py-3.5 rounded-xl text-sm font-semibold transition-all ${selectedOrg?.id === org.id
                                     ? "bg-red-600 text-white shadow-md"
                                     : "text-slate-500 hover:bg-slate-50"
-                                }`}
-                        >
-                            {item}
-                        </button>
-                    ))}
+                                    }`}
+                            >
+                                {org.name}
+                            </button>
+                        ))}
                 </div>
             </div>
         </aside>

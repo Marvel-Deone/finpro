@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "../components/header";
 import Sidebar from "../components/sidebar";
 
+type Org = { id: string; name: string };
+
 const TABS = [
     { id: "overview", label: "Overview" },
     { id: "history", label: "History" },
@@ -77,7 +79,16 @@ const liabilities: Liability[] = [
     },
 ];
 
-const TabContent = ({ activeTab }: { activeTab: string }) => {
+const TabContent = ({
+    activeTab,
+    selectedOrg,
+}: {
+    activeTab: string,
+    selectedOrg: { id: string; name: string } | null;
+}) => {
+
+    const orgId = selectedOrg?.id;
+
     const [liabilityModalOpen, setLiabilityModalOpen] = useState(false);
     const [examModalOpen, setExamModalOpen] = useState(false);
     const [stockModalOpen, setStockModalOpen] = useState(false);
@@ -86,14 +97,16 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
     const [loans, setLoans] = useState<any[]>([])
 
     useEffect(() => {
-        fetchStocks()
-        fetchExams()
-        fetchLoans()
-    }, [])
+        if (!orgId) return;
 
-    const fetchExams = async () => {
+        fetchStocks(orgId)
+        fetchExams(orgId)
+        fetchLoans(orgId)
+    }, [orgId])
+
+    const fetchExams = async (orgId: string) => {
         try {
-            const res = await fetch('/api/exams', {
+            const res = await fetch(`/api/exams?orgId=${orgId}`, {
                 credentials: 'include',
             })
 
@@ -112,9 +125,9 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
         }
     }
 
-    const fetchStocks = async () => {
+    const fetchStocks = async (orgId: string) => {
         try {
-            const res = await fetch('/api/stocks', {
+            const res = await fetch(`/api/stocks?orgId=${orgId}`, {
                 credentials: 'include',
             })
 
@@ -128,9 +141,9 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
         }
     }
 
-    const fetchLoans = async () => {
+    const fetchLoans = async (orgId: string) => {
         try {
-            const res = await fetch('/api/loans', {
+            const res = await fetch(`/api/loans?orgId=${orgId}`, {
                 credentials: 'include',
             })
 
@@ -176,6 +189,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
             }
 
             const payload = {
+                orgId,
                 category: target.category.value,
                 session_name: target.sessionName.value,
                 total_candidates: parseInt(target.studentsCount.value, 10),
@@ -198,7 +212,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
             }
 
             alert('Exam recorded successfully!')
-            fetchExams()
+            fetchExams(selectedOrg!.id)
             setExamModalOpen(false)
         } catch (err: any) {
             console.log(err.message)
@@ -211,6 +225,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
         const formData = new FormData(e.currentTarget)
 
         const payload = {
+            orgId,
             asset_identity: formData.get('name'),
             operational_narrative: formData.get('narrative'),
             count: Number(formData.get('quantity')),
@@ -235,7 +250,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
             if (!res.ok) throw new Error(data.error)
 
             setStockModalOpen(false)
-            fetchStocks()
+            fetchStocks(selectedOrg!.id)
             setStockModalOpen(false)
         } catch (err) {
             console.error(err)
@@ -251,16 +266,8 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
 
         if (!principal) return
 
-        // const payload = {
-        //     ledger_identity: formData.get("ledger_identity"),
-        //     operational_narrative: formData.get("narrative"),
-        //     principal: Number(principal),
-        //     term: formData.get("term"),
-        //     liability_proof: "",
-        // }
-
-
         const payload = {
+            orgId,
             ledger_identity: String(formData.get("ledger_identity") ?? ""),
             operational_narrative: String(formData.get("operational_narrative") ?? ""),
             principal: Number(formData.get("principal")),
@@ -268,7 +275,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
             category: "Loan", // or from formData if you add it
             liability_proof: String(formData.get("liability_proof") ?? ""),
         }
-        
+
         const res = await fetch("/api/loans", {
             method: "POST",
             credentials: "include",
@@ -280,7 +287,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
 
         if (res.ok) {
             setLiabilityModalOpen(false)
-            fetchLoans()
+            fetchLoans(selectedOrg!.id)
         }
     }
 
@@ -1066,7 +1073,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                         Executive Document Vault
                     </h3>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 text-slate-800">
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-6 text-slate-800">
                         {/* DOCUMENT CARD */}
                         {[
                             { name: "jamb_log_jan26.pdf", lead: "Tunde" },
@@ -1141,7 +1148,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                         Departmental Strategic Ledger
                     </div>
 
-                    {/* ✅ Desktop table */}
+                    {/* Desktop table */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-slate-800 text-left">
                             <thead className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -1180,7 +1187,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
                         </table>
                     </div>
 
-                    {/* ✅ Mobile stacked cards */}
+                    {/* Mobile stacked cards */}
                     <div className="md:hidden p-4 space-y-4">
                         {ledgerEntries.map((entry, index) => (
                             <div key={index} className="rounded-2xl border border-slate-100 p-4 bg-white">
@@ -1461,6 +1468,7 @@ const TabContent = ({ activeTab }: { activeTab: string }) => {
 const Dashboard = () => {
     const [activeTab, setActiveTab] = useState("overview");
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
 
     // Close drawer on desktop resize
     useEffect(() => {
@@ -1476,11 +1484,36 @@ const Dashboard = () => {
         [activeTab]
     );
 
+    const handleOrgSubmit = async () => {
+        const payload = {
+            name: "General Operations"
+        }
+
+        try {
+            const res = await fetch('/api/org', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error)
+            console.log('data:', data);
+
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-16 sm:pb-20 selection:bg-red-100 selection:text-red-700">
             <Header />
-
-            {/* ✅ Mobile topbar (hamburger + active tab) */}
+            {/* <button onClick={handleOrgSubmit}>Hello there</button> */}
+            {/* Mobile topbar (hamburger + active tab) */}
             <div className="lg:hidden sticky top-0 z-30 bg-slate-50/90 backdrop-blur border-b border-slate-100">
                 <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
                     <button
@@ -1509,12 +1542,12 @@ const Dashboard = () => {
             </div>
 
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 flex flex-col lg:flex-row gap-6 lg:gap-10">
-                {/* ✅ Desktop sidebar */}
+                {/* Desktop sidebar */}
                 <div className="hidden lg:block">
-                    <Sidebar />
+                    <Sidebar selectedOrg={selectedOrg} onOrgChange={setSelectedOrg} />
                 </div>
 
-                {/* ✅ Mobile sidebar drawer */}
+                {/* Mobile sidebar drawer */}
                 <div className={`lg:hidden fixed inset-0 z-40 ${sidebarOpen ? "" : "pointer-events-none"}`}>
                     <div
                         className={`absolute inset-0 bg-black/40 transition-opacity ${sidebarOpen ? "opacity-100" : "opacity-0"
@@ -1540,14 +1573,14 @@ const Dashboard = () => {
                         </div>
 
                         <div className="p-4">
-                            <Sidebar />
+                            <Sidebar selectedOrg={selectedOrg} onOrgChange={setSelectedOrg} />
                         </div>
                     </div>
                 </div>
 
                 {/* Main Content */}
                 <div className="flex-1 min-w-0">
-                    {/* ✅ Tabs row: scrollable + export aligns on desktop */}
+                    {/* Tabs row: scrollable + export aligns on desktop */}
                     <div className="relative">
                         {/* fade edges */}
                         <div className="pointer-events-none absolute left-0 top-0 h-full w-6 bg-gradient-to-r from-slate-50 to-transparent" />
@@ -1600,7 +1633,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="mt-6">
-                        <TabContent activeTab={activeTab} />
+                        <TabContent activeTab={activeTab} selectedOrg={selectedOrg} />
                     </div>
                 </div>
             </div>

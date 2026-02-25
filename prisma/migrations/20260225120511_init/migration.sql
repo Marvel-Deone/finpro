@@ -9,6 +9,16 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
+CREATE TABLE "Org" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "Org_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Category" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -22,6 +32,7 @@ CREATE TABLE "Category" (
     "asset" INTEGER NOT NULL,
     "liability" INTEGER NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "orgId" TEXT NOT NULL,
 
     CONSTRAINT "Category_pkey" PRIMARY KEY ("id")
 );
@@ -29,11 +40,12 @@ CREATE TABLE "Category" (
 -- CreateTable
 CREATE TABLE "Exam" (
     "id" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
     "session_name" TEXT NOT NULL,
     "total_candidates" INTEGER NOT NULL,
     "document_proof" TEXT NOT NULL,
+    "category" TEXT NOT NULL DEFAULT 'JAMB',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "orgId" TEXT NOT NULL,
 
     CONSTRAINT "Exam_pkey" PRIMARY KEY ("id")
 );
@@ -46,8 +58,9 @@ CREATE TABLE "Stock" (
     "count" INTEGER NOT NULL,
     "purchase_value" DOUBLE PRECISION NOT NULL,
     "category" TEXT NOT NULL,
+    "unit" TEXT NOT NULL,
     "asset_proof" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "orgId" TEXT NOT NULL,
 
     CONSTRAINT "Stock_pkey" PRIMARY KEY ("id")
 );
@@ -58,10 +71,11 @@ CREATE TABLE "Loan" (
     "ledger_identity" TEXT NOT NULL,
     "operational_narrative" TEXT NOT NULL,
     "principal" DOUBLE PRECISION NOT NULL,
+    "category" TEXT NOT NULL,
     "term" TEXT NOT NULL,
     "liability_proof" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "orgId" TEXT NOT NULL,
 
     CONSTRAINT "Loan_pkey" PRIMARY KEY ("id")
 );
@@ -72,8 +86,8 @@ CREATE TABLE "History" (
     "title" TEXT NOT NULL,
     "desc" TEXT NOT NULL,
     "action" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "orgId" TEXT NOT NULL,
 
     CONSTRAINT "History_pkey" PRIMARY KEY ("id")
 );
@@ -82,10 +96,19 @@ CREATE TABLE "History" (
 CREATE UNIQUE INDEX "User_identity_key" ON "User"("identity");
 
 -- AddForeignKey
-ALTER TABLE "Stock" ADD CONSTRAINT "Stock_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Org" ADD CONSTRAINT "Org_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Loan" ADD CONSTRAINT "Loan_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Category" ADD CONSTRAINT "Category_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "History" ADD CONSTRAINT "History_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Exam" ADD CONSTRAINT "Exam_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Stock" ADD CONSTRAINT "Stock_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Loan" ADD CONSTRAINT "Loan_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "History" ADD CONSTRAINT "History_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Org"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

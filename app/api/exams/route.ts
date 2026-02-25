@@ -3,31 +3,32 @@ import { createExam, getExams } from '@/services/exam.service'
 import { createExamSchema } from '@/validations/exam.schema'
 import { verifyToken } from '@/lib/jwt'
 import { cookies } from 'next/headers'
+import { getAuthenticatedUser, verifyOrgOwnership } from '@/lib/auth'
 
-// export async function GET() {
-//   try {
-//     const exams = await getExams()
-//     return NextResponse.json(exams)
-//   } catch (error: any) {
-//     return NextResponse.json({ error: error.message }, { status: 500 })
-//   }
-// }
-
-export async function GET() {
+export async function GET(req: Request) {
     try {
-        const cookieStore = await cookies()
-        const token = cookieStore.get('token')?.value
+        const { searchParams } = new URL(req.url)
+        const orgId = searchParams.get("orgId")
 
-        if (!token) {
+        if (!orgId) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: "orgId is required" },
+                { status: 400 }
+            )
+        }
+        const user = await getAuthenticatedUser(req)
+
+        if (!user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
                 { status: 401 }
             )
         }
 
-        const decoded = verifyToken(token) as { userId: string }
+        // verify org belongs to user
+        await verifyOrgOwnership(user.id, orgId)
 
-        const exams = await getExams(decoded.userId)
+        const exams = await getExams(orgId)
 
         return NextResponse.json(exams)
     } catch (error: any) {
@@ -38,27 +39,59 @@ export async function GET() {
     }
 }
 
+
 export async function POST(req: Request) {
     try {
-        // Validate body
         const body = await req.json()
-        const validated = createExamSchema.parse(body)
 
-        // Get userId from cookie
-        const cookieStore = await cookies()
-        const token = cookieStore.get('token')?.value
+        // Extract orgId separately
+        const { orgId, ...examData } = body
 
-        if (!token) throw new Error('Unauthorized')
+        if (!orgId) {
+            return NextResponse.json(
+                { error: "orgId is required" },
+                { status: 400 }
+            )
+        }
 
-        const decoded = verifyToken(token) as { userId: string }
+        // Validate only exam fields (not orgId)
+        const validated = createExamSchema.parse(examData)
 
-        // Create exam with userId
-        const exam = await createExam(validated, decoded.userId)
+        // Get token from cookie
+        // const cookieStore = await cookies()
+        // const token = cookieStore.get("token")?.value
 
-        return NextResponse.json({
-            message: 'Exam created successfully',
-            exam,
-        })
+        // if (!token) {
+        //     return NextResponse.json(
+        //         { error: "Unauthorized" },
+        //         { status: 401 }
+        //     )
+        // }
+
+        // const decoded = verifyToken(token) as { userId: string }
+
+        // Verify org belongs to logged-in user
+        const user = await getAuthenticatedUser(req)
+
+        if (!user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            )
+        }
+
+        await verifyOrgOwnership(user.id, orgId)
+
+        // Create exam using orgId (NOT userId)
+        const exam = await createExam(validated, orgId)
+
+        return NextResponse.json(
+            {
+                message: "Exam created successfully",
+                exam,
+            },
+            { status: 201 }
+        )
     } catch (error: any) {
         return NextResponse.json(
             { error: error.message },

@@ -14,10 +14,26 @@ model User {
   password   String
   created_at DateTime @default(now())
 
-  loans   Loan[]
-  stocks  Stock[]
-  history History[]
-  exams   Exam[]
+  org       Org[]
+  // exams     Exam[]
+  // stocks    Stock[]
+  // loans     Loan[]
+  // histories History[]
+}
+
+model Org {
+  id         String   @id @default(uuid())
+  name       String
+  created_at DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  category Category[]
+  loans    Loan[]
+  stocks   Stock[]
+  history  History[]
+  exams    Exam[]
 }
 
 model Category {
@@ -35,6 +51,8 @@ model Category {
   created_at       DateTime @default(now())
 
   // exams Exam[]
+  org   Org    @relation(fields: [orgId], references: [id])
+  orgId String
 }
 
 model Exam {
@@ -43,13 +61,15 @@ model Exam {
   total_candidates Int
   document_proof   String
   category         String   @default("JAMB")
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
+  // userId           String
+  // user             User     @relation(fields: [userId], references: [id])
   created_at       DateTime @default(now())
+  org              Org     @relation(fields: [orgId], references: [id])
+  orgId            String
 }
 
 model Stock {
-  id                    String @id @default(uuid())
+  id                    String  @id @default(uuid())
   asset_identity        String
   operational_narrative String
   count                 Int
@@ -57,8 +77,10 @@ model Stock {
   category              String
   unit                  String
   asset_proof           String
-  userId                String
-  user                  User   @relation(fields: [userId], references: [id])
+  // userId                String
+  // user                  User    @relation(fields: [userId], references: [id])
+  org                   Org    @relation(fields: [orgId], references: [id])
+  orgId                 String
 }
 
 model Loan {
@@ -69,9 +91,11 @@ model Loan {
   category              String
   term                  String
   liability_proof       String
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id])
+  // userId                String
+  // user                  User     @relation(fields: [userId], references: [id])
   createdAt             DateTime @default(now())
+  org                   Org     @relation(fields: [orgId], references: [id])
+  orgId                 String
 }
 
 model History {
@@ -79,7 +103,9 @@ model History {
   title     String
   desc      String
   action    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  // userId    String
+  // user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+  org       Org     @relation(fields: [orgId], references: [id])
+  orgId     String
 }
