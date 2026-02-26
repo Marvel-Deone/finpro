@@ -202,7 +202,7 @@ const ExecutiveLogin = () => {
                 type="text"
                 placeholder="Enter Name"
                 required
-                className="w-full text-gray-500 bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
+                className="w-full text-gray-600! bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
               />
             </div>
 
@@ -216,7 +216,7 @@ const ExecutiveLogin = () => {
                 type="password"
                 placeholder="••••••••"
                 required
-                className="w-full text-slate-500 bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
+                className="w-full text-slate-600! bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
               />
             </div>
 
