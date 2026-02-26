@@ -232,28 +232,57 @@
 // }
 
 // lib/prisma.ts
-import PrismaClientDefault from '@prisma/client'
-import { neon } from '@neondatabase/serverless'
+// import PrismaClientDefault from '@prisma/client'
+// import { neon } from '@neondatabase/serverless'
 
-// Default import is already the class
-const PrismaClient = PrismaClientDefault as any
+// // Default import is already the class
+// const PrismaClient = PrismaClientDefault as any
 
+// if (!process.env.DATABASE_URL) {
+//   throw new Error("DATABASE_URL environment variable is not set")
+// }
+
+// // Raw SQL client for Neon (optional)
+// export const sql = neon(process.env.DATABASE_URL)
+
+// // Lazy singleton for Prisma (prevents multiple connections in dev / serverless)
+// declare global {
+//   // eslint-disable-next-line no-var
+//   var prisma: any
+// }
+
+// export const prisma: any =
+//   global.prisma ?? new PrismaClient()
+
+// if (process.env.NODE_ENV !== 'production') {
+//   global.prisma = prisma
+// }
+
+
+import "dotenv/config"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { PrismaClient } from "@/generated/prisma/client"
+
+// Ensure DATABASE_URL exists
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set")
 }
 
-// Raw SQL client for Neon (optional)
-export const sql = neon(process.env.DATABASE_URL)
+const connectionString = process.env.DATABASE_URL
 
-// Lazy singleton for Prisma (prevents multiple connections in dev / serverless)
+const adapter = new PrismaPg({ connectionString })
+
 declare global {
   // eslint-disable-next-line no-var
-  var prisma: any
+  var prisma: PrismaClient | undefined
 }
 
-export const prisma: any =
-  global.prisma ?? new PrismaClient()
+export const prisma =
+  global.prisma ??
+  new PrismaClient({
+    adapter,
+  })
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma
 }
