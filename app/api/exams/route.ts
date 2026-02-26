@@ -1,101 +1,168 @@
-import { NextResponse } from 'next/server'
-import { createExam, getExams } from '@/services/exam.service'
-import { createExamSchema } from '@/validations/exam.schema'
-import { verifyToken } from '@/lib/jwt'
-import { cookies } from 'next/headers'
-import { getAuthenticatedUser, verifyOrgOwnership } from '@/lib/auth'
+// import { NextResponse } from 'next/server'
+// import { createExam, getExams } from '@/services/exam.service'
+// import { createExamSchema } from '@/validations/exam.schema'
+// import { getAuthenticatedUser, verifyOrgOwnership } from '@/lib/auth'
 
-export async function GET(req: Request) {
-    try {
-        const { searchParams } = new URL(req.url)
-        const orgId = searchParams.get("orgId")
+// export async function GET(req: Request) {
+//     try {
+//         const { searchParams } = new URL(req.url)
+//         const orgId = searchParams.get("orgId")
 
-        if (!orgId) {
-            return NextResponse.json(
-                { error: "orgId is required" },
-                { status: 400 }
-            )
-        }
-        const user = await getAuthenticatedUser(req)
+//         if (!orgId) {
+//             return NextResponse.json(
+//                 { error: "orgId is required" },
+//                 { status: 400 }
+//             )
+//         }
+//         const user = await getAuthenticatedUser(req)
 
-        if (!user) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            )
-        }
+//         if (!user) {
+//             return NextResponse.json(
+//                 { error: "Unauthorized" },
+//                 { status: 401 }
+//             )
+//         }
 
-        // verify org belongs to user
-        await verifyOrgOwnership(user.id, orgId)
+//         // verify org belongs to user
+//         await verifyOrgOwnership(user.id, orgId)
 
-        const exams = await getExams(orgId)
+//         const exams = await getExams(orgId)
 
-        return NextResponse.json(exams)
-    } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        )
+//         return NextResponse.json(exams)
+//     } catch (error: any) {
+//         return NextResponse.json(
+//             { error: error.message },
+//             { status: 500 }
+//         )
+//     }
+// }
+
+
+// export async function POST(req: Request) {
+//     try {
+//         const body = await req.json()
+
+//         // Extract orgId separately
+//         const { orgId, ...examData } = body
+
+//         if (!orgId) {
+//             return NextResponse.json(
+//                 { error: "orgId is required" },
+//                 { status: 400 }
+//             )
+//         }
+
+//         // Validate only exam fields (not orgId)
+//         const validated = createExamSchema.parse(examData)
+
+//         // Verify org belongs to logged-in user
+//         const user = await getAuthenticatedUser(req)
+
+//         if (!user) {
+//             return NextResponse.json(
+//                 { error: "Unauthorized" },
+//                 { status: 401 }
+//             )
+//         }
+
+//         await verifyOrgOwnership(user.id, orgId)
+
+//         // Create exam using orgId (NOT userId)
+//         const exam = await createExam(validated, orgId)
+
+//         return NextResponse.json(
+//             {
+//                 message: "Exam created successfully",
+//                 exam,
+//             },
+//             { status: 201 }
+//         )
+//     } catch (error: any) {
+//         return NextResponse.json(
+//             { error: error.message },
+//             { status: 400 }
+//         )
+//     }
+// }
+
+import { NextRequest, NextResponse } from "next/server";
+import { createExam, getExams } from "@/services/exam.service";
+import { createExamSchema } from "@/validations/exam.schema";
+import { getAuthenticatedUser, verifyOrgOwnership } from "@/lib/auth";
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const orgId = searchParams.get("orgId");
+
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "orgId is required" },
+        { status: 400 }
+      );
     }
+
+    const user = await getAuthenticatedUser(request);
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    await verifyOrgOwnership(user.id, orgId);
+
+    const exams = await getExams(orgId);
+
+    return NextResponse.json(exams);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message ?? "Internal Server Error" },
+      { status: 500 }
+    );
+  }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
 
-export async function POST(req: Request) {
-    try {
-        const body = await req.json()
+    const { orgId, ...examData } = body;
 
-        // Extract orgId separately
-        const { orgId, ...examData } = body
-
-        if (!orgId) {
-            return NextResponse.json(
-                { error: "orgId is required" },
-                { status: 400 }
-            )
-        }
-
-        // Validate only exam fields (not orgId)
-        const validated = createExamSchema.parse(examData)
-
-        // Get token from cookie
-        // const cookieStore = await cookies()
-        // const token = cookieStore.get("token")?.value
-
-        // if (!token) {
-        //     return NextResponse.json(
-        //         { error: "Unauthorized" },
-        //         { status: 401 }
-        //     )
-        // }
-
-        // const decoded = verifyToken(token) as { userId: string }
-
-        // Verify org belongs to logged-in user
-        const user = await getAuthenticatedUser(req)
-
-        if (!user) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            )
-        }
-
-        await verifyOrgOwnership(user.id, orgId)
-
-        // Create exam using orgId (NOT userId)
-        const exam = await createExam(validated, orgId)
-
-        return NextResponse.json(
-            {
-                message: "Exam created successfully",
-                exam,
-            },
-            { status: 201 }
-        )
-    } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 400 }
-        )
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "orgId is required" },
+        { status: 400 }
+      );
     }
+
+    const validated = createExamSchema.parse(examData);
+
+    const user = await getAuthenticatedUser(request);
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    await verifyOrgOwnership(user.id, orgId);
+
+    const exam = await createExam(validated, orgId);
+
+    return NextResponse.json(
+      {
+        message: "Exam created successfully",
+        exam,
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message ?? "Invalid request data" },
+      { status: 400 }
+    );
+  }
 }

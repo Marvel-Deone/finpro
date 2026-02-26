@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma"
 
-/**
- * Create Organization
- */
+// Create Organization
 export async function createOrg(userId: string, name: string) {
   return prisma.org.create({
     data: {
@@ -12,9 +10,7 @@ export async function createOrg(userId: string, name: string) {
   })
 }
 
-/**
- * Get all orgs for a user
- */
+//  Get all orgs for a user
 export async function getUserOrgs(userId: string) {
   return prisma.org.findMany({
     where: { userId },
@@ -22,9 +18,7 @@ export async function getUserOrgs(userId: string) {
   })
 }
 
-/**
- * Get single org (scoped to user)
- */
+// Get single org (scoped to user)
 export async function getOrgById(userId: string, orgId: string) {
   return prisma.org.findFirst({
     where: {
@@ -34,9 +28,8 @@ export async function getOrgById(userId: string, orgId: string) {
   })
 }
 
-/**
- * Update org (scoped)
- */
+
+// Update org (scoped)
 export async function updateOrg(
   userId: string,
   orgId: string,
@@ -54,9 +47,7 @@ export async function updateOrg(
   })
 }
 
-/**
- * Delete org (scoped)
- */
+// Delete org (scoped)
 export async function deleteOrg(userId: string, orgId: string) {
   const org = await getOrgById(userId, orgId)
 
