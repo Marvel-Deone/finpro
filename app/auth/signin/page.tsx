@@ -21,7 +21,7 @@ const ExecutiveLogin = () => {
                 password: target.password.value,
             }
 
-            const res = await fetch('/api/auth/login', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -35,6 +35,8 @@ const ExecutiveLogin = () => {
             if (!res.ok) {
                 throw new Error(data.error || 'Login failed')
             }
+            console.log('res:', data);
+            localStorage.setItem("access_token", data.access_token);
             toast.success("Login successfully.");
             window.location.href = '/dashboard'
         } catch (err: any) {

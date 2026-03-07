@@ -319,7 +319,7 @@ const TabContent = ({
         <div className="animate-in fade-in duration-500 text-left">
           <div className="mb-8 sm:mb-10 text-slate-900">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1 truncate uppercase">
-              Datforte CBT
+              {selectedOrg?.name}
             </h2>
 
             <p className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-2">

@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 const Header = () => {
     return (
         <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
@@ -45,9 +47,9 @@ const Header = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button className="p-2.5 rounded-xl bg-white text-slate-400 border border-slate-100 hover:text-red-600">
+                        <Link href="/settings" className="p-2.5 rounded-xl bg-white text-slate-400 border border-slate-100 hover:text-red-600">
                             ⚙
-                        </button>
+                        </Link>
                         <button
                             title="Terminate Session"
                             className="p-2.5 bg-white text-slate-400 border border-slate-100 rounded-xl hover:text-red-600 shadow-sm"
