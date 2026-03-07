@@ -59,28 +59,15 @@ interface Liability {
   totalValue: string;
 }
 
-async function requestJSON<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    const msg =
-      (data && (data.error || data.message)) ||
-      `Request failed (${res.status})`;
-    throw new Error(msg);
-  }
-
-  return data as T;
-}
-
 const TabContent = ({
   activeTab,
   selectedOrg,
 }: {
   activeTab: string;
-  selectedOrg: Org | null;
+  selectedOrg: any | null;
 }) => {
-  const orgId = selectedOrg?.id;
+  // const categoryId = selectedOrg?.id;
+  const categoryId = selectedOrg?.categories?.business?.id ?? null;
 
   const [liabilityModalOpen, setLiabilityModalOpen] = useState(false);
   const [examModalOpen, setExamModalOpen] = useState(false);
@@ -94,6 +81,7 @@ const TabContent = ({
   const [isSubmittingExam, setIsSubmittingExam] = useState(false);
   const [isSubmittingStock, setIsSubmittingStock] = useState(false);
   const [isSubmittingLoan, setIsSubmittingLoan] = useState(false);
+  const [accessToken, setAccessToken] = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -108,28 +96,43 @@ const TabContent = ({
       <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{title}</p>
     </div>
   );
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) setAccessToken(token);
+  }, []);
 
-  const fetchExams = async (orgIdValue: string, signal?: AbortSignal) => {
-    const data = await requestJSON<any[]>(
-      `/api/exams?orgId=${encodeURIComponent(orgIdValue)}`,
-      { credentials: "include", signal }
-    );
+  const fetchExams = async (categoryIdValue: string, signal?: AbortSignal) => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/exams?categoryId=${categoryIdValue}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    })
+
+    const data = await res.json()
     setExams(data);
   };
 
-  const fetchStocks = async (orgIdValue: string, signal?: AbortSignal) => {
-    const data = await requestJSON<any[]>(
-      `/api/stocks?orgId=${encodeURIComponent(orgIdValue)}`,
-      { credentials: "include", signal }
-    );
+  const fetchStocks = async (categoryIdValue: string, signal?: AbortSignal) => {
+    if (!accessToken) return;
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stocks?categoryId=${categoryIdValue}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    })
+
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message)
     setStocks(data);
   };
 
-  const fetchLoans = async (orgIdValue: string, signal?: AbortSignal) => {
-    const data = await requestJSON<any[]>(
-      `/api/loans?orgId=${encodeURIComponent(orgIdValue)}`,
-      { credentials: "include", signal }
-    );
+  const fetchLoans = async (categoryIdValue: string, signal?: AbortSignal) => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/loans?categoryId=${categoryIdValue}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message)
 
     const formatted = data.map((loan: any) => {
       const termMonths = Number(loan.term);
@@ -150,7 +153,7 @@ const TabContent = ({
     setLoans(formatted);
   };
 
-  const refetchAll = async (orgIdValue: string) => {
+  const refetchAll = async (categoryIdValue: string) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -159,9 +162,9 @@ const TabContent = ({
 
     try {
       await Promise.all([
-        fetchStocks(orgIdValue, controller.signal),
-        fetchExams(orgIdValue, controller.signal),
-        fetchLoans(orgIdValue, controller.signal),
+        fetchStocks(categoryIdValue, controller.signal),
+        fetchExams(categoryIdValue, controller.signal),
+        fetchLoans(categoryIdValue, controller.signal),
       ]);
     } catch (err: any) {
       if (err?.name !== "AbortError") {
@@ -173,24 +176,24 @@ const TabContent = ({
   };
 
   useEffect(() => {
-    if (!orgId) {
+    if (!categoryId) {
       setExams([]);
       setStocks([]);
       setLoans([]);
       return;
     }
 
-    void refetchAll(orgId);
+    void refetchAll(categoryId);
 
     return () => {
       abortRef.current?.abort();
     };
-  }, [orgId]);
+  }, [categoryId, accessToken]);
 
   const handleExamSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!orgId) {
+    if (!business?.id) {
       toast.error("Select an organization first.");
       return;
     }
@@ -206,22 +209,33 @@ const TabContent = ({
       };
 
       const payload = {
-        orgId,
+        subsidiaryCategoryId: business.id,
         category: target.category.value,
         session_name: target.sessionName.value,
         total_candidates: parseInt(target.studentsCount.value, 10),
         document_proof: target.documentProof.value || "https://example.com/temp.pdf",
       };
 
-      await requestJSON("/api/exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/exams`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        }
+      )
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create exam")
+      }
 
       toast.success("Exam recorded successfully.");
-      await fetchExams(orgId);
+      await fetchExams(business.id);
       setExamModalOpen(false);
     } catch (err: any) {
       toast.error(err?.message || "Failed to record exam.");
@@ -233,7 +247,7 @@ const TabContent = ({
   const handleStockSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!orgId) {
+    if (!business?.id) {
       toast.error("Select an organization first.");
       return;
     }
@@ -244,7 +258,7 @@ const TabContent = ({
       const formData = new FormData(e.currentTarget);
 
       const payload = {
-        orgId,
+        subsidiaryCategoryId: business.id,
         asset_identity: formData.get("name"),
         operational_narrative: formData.get("narrative"),
         count: Number(formData.get("quantity")),
@@ -254,16 +268,27 @@ const TabContent = ({
         asset_proof: "",
       };
 
-      await requestJSON("/api/stocks", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/stocks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        }
+      )
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create stock")
+      }
 
       toast.success("Stock recorded successfully.");
       setStockModalOpen(false);
-      await fetchStocks(orgId);
+      await fetchStocks(business.id);
     } catch (err: any) {
       toast.error(err?.message || "Failed to record stock.");
     } finally {
@@ -274,7 +299,7 @@ const TabContent = ({
   const handleLoanSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!orgId) {
+    if (!business?.id) {
       toast.error("Select an organization first.");
       return;
     }
@@ -287,31 +312,45 @@ const TabContent = ({
       if (!principal) return;
 
       const payload = {
-        orgId,
+        subsidiaryCategoryId: business.id,
         ledger_identity: String(formData.get("ledger_identity") ?? ""),
         operational_narrative: String(formData.get("operational_narrative") ?? ""),
-        principal: Number(formData.get("principal")),
+        principal: Number(principal),
         term: String(formData.get("term") ?? ""),
         category: "Loan",
         liability_proof: String(formData.get("liability_proof") ?? ""),
       };
 
-      await requestJSON("/api/loans", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/loans`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        }
+      )
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create loan")
+      }
 
       toast.success("Loan recorded successfully.");
       setLiabilityModalOpen(false);
-      await fetchLoans(orgId);
+      await fetchLoans(business.id);
     } catch (err: any) {
       toast.error(err?.message || "Failed to record loan.");
     } finally {
       setIsSubmittingLoan(false);
     }
   };
+
+  // Ensure business is defined safely
+  const business = selectedOrg?.categories?.business ?? null;
 
   switch (activeTab) {
     case "overview":
@@ -369,7 +408,7 @@ const TabContent = ({
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                 Seat Throughput
               </p>
-              <p className="text-2xl font-bold text-slate-900 tracking-tight">385</p>
+              <p className="text-2xl font-bold text-slate-900 tracking-tight">{business?.seat_throughput ?? 0}</p>
             </div>
 
             <div className="rounded-3xl p-5 sm:p-6 border transition-all hover:scale-[1.02] bg-white border-slate-100 shadow-sm">
@@ -399,7 +438,7 @@ const TabContent = ({
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                 Project Inflow
               </p>
-              <p className="text-2xl font-bold text-slate-900 tracking-tight">₦1,850,000</p>
+              <p className="text-2xl font-bold text-slate-900 tracking-tight">{business?.project_inflow ?? 0}</p>
             </div>
 
             <div className="rounded-3xl p-5 sm:p-6 border transition-all hover:scale-[1.02] bg-white border-slate-100 shadow-sm">
@@ -430,7 +469,7 @@ const TabContent = ({
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                 Inventory Value
               </p>
-              <p className="text-2xl font-bold text-slate-900 tracking-tight">₦405,300</p>
+              <p className="text-2xl font-bold text-slate-900 tracking-tight">{business?.inventory ?? 0}</p>
             </div>
 
             <div className="rounded-3xl p-5 sm:p-6 border transition-all hover:scale-[1.02] bg-white border-slate-100 shadow-sm">
@@ -460,7 +499,7 @@ const TabContent = ({
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                 Monthly Debt
               </p>
-              <p className="text-2xl font-bold text-slate-900 tracking-tight">₦196,183</p>
+              <p className="text-2xl font-bold text-slate-900 tracking-tight">{business?.monthly_dept ?? 0}</p>
             </div>
           </div>
 
@@ -474,7 +513,7 @@ const TabContent = ({
 
                 <div className="mt-8 sm:mt-10">
                   <span className="text-3xl sm:text-4xl font-bold tracking-tight text-emerald-400">
-                    ₦1,484,527
+                    {business?.net_capital ?? 0}
                   </span>
 
                   <div className="w-full bg-white/10 h-1.5 rounded-full mt-6 overflow-hidden">
@@ -588,11 +627,10 @@ const TabContent = ({
                   return (
                     <div
                       key={`day-${day}`}
-                      className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-bold border transition-all ${
-                        highlighted
-                          ? "bg-red-50 border-red-100 text-red-600"
-                          : "bg-white border-transparent text-slate-700 hover:bg-slate-50"
-                      }`}
+                      className={`aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-bold border transition-all ${highlighted
+                        ? "bg-red-50 border-red-100 text-red-600"
+                        : "bg-white border-transparent text-slate-700 hover:bg-slate-50"
+                        }`}
                     >
                       {day}
                       {highlighted && <div className="w-1 h-1 rounded-full mt-0.5 bg-red-600" />}
@@ -657,7 +695,7 @@ const TabContent = ({
             <button
               onClick={() => setExamModalOpen(true)}
               className="bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide shadow-md"
-              disabled={!orgId || isOrgLoading}
+              disabled={!business?.id || isOrgLoading}
               type="button"
             >
               {isOrgLoading ? "Loading..." : "Record Daily Entry"}
@@ -719,7 +757,7 @@ const TabContent = ({
                         {exam.created_at &&
                           `• Recorded ${Math.floor(
                             (Date.now() - new Date(exam.created_at).getTime()) /
-                              (1000 * 60 * 60)
+                            (1000 * 60 * 60)
                           )} hours ago`}
                       </span>
 
@@ -874,7 +912,7 @@ const TabContent = ({
             <button
               onClick={() => setStockModalOpen(true)}
               className="bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide shadow-md"
-              disabled={!orgId || isOrgLoading}
+              disabled={!business?.id || isOrgLoading}
               type="button"
             >
               {isOrgLoading ? "Loading..." : "Listing New Stock"}
@@ -1205,9 +1243,8 @@ const TabContent = ({
                     </td>
 
                     <td
-                      className={`px-6 lg:px-8 py-5 text-right font-bold ${
-                        entry.isPositive ? "text-emerald-500" : "text-red-600"
-                      }`}
+                      className={`px-6 lg:px-8 py-5 text-right font-bold ${entry.isPositive ? "text-emerald-500" : "text-red-600"
+                        }`}
                     >
                       {entry.value}
                     </td>
@@ -1340,7 +1377,7 @@ const TabContent = ({
           <button
             onClick={() => setLiabilityModalOpen(true)}
             className="border-2 border-dashed border-slate-200 rounded-3xl p-8 flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-red-200 hover:text-red-600 transition-all group min-h-[220px] sm:min-h-[300px]"
-            disabled={!orgId || isOrgLoading}
+            disabled={!business?.id || isOrgLoading}
             type="button"
           >
             <svg
@@ -1566,9 +1603,8 @@ const Dashboard = () => {
             onClick={() => setSidebarOpen(false)}
           />
           <div
-            className={`absolute left-0 top-0 h-full w-[86%] max-w-[360px] bg-slate-50 border-r border-slate-100 shadow-xl transition-transform ${
-              sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+            className={`absolute left-0 top-0 h-full w-[86%] max-w-[360px] bg-slate-50 border-r border-slate-100 shadow-xl transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              }`}
           >
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">Menu</p>
@@ -1603,11 +1639,10 @@ const Dashboard = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2.5 pb-4 px-1 border-b-2 transition-all font-bold text-xs uppercase tracking-wide shrink-0 ${
-                        activeTab === tab.id
-                          ? "border-red-600 text-red-600"
-                          : "border-transparent text-slate-400 hover:text-slate-600"
-                      }`}
+                      className={`flex items-center gap-2.5 pb-4 px-1 border-b-2 transition-all font-bold text-xs uppercase tracking-wide shrink-0 ${activeTab === tab.id
+                        ? "border-red-600 text-red-600"
+                        : "border-transparent text-slate-400 hover:text-slate-600"
+                        }`}
                       type="button"
                     >
                       <svg

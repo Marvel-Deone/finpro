@@ -38,9 +38,9 @@ const Header = () => {
                 {/* Right Controls */}
                 <div className="flex items-center gap-6">
                     <div className="flex bg-slate-100 p-1 rounded-xl">
-                        <button className="flex items-center gap-2 px-6 py-2 rounded-lg text-xs font-bold bg-white text-red-600 shadow-sm">
+                        <Link href="/dashboard" className="flex items-center gap-2 px-6 py-2 rounded-lg text-xs font-bold bg-white text-red-600 shadow-sm">
                             Business
-                        </button>
+                        </Link>
                         <button className="flex items-center gap-2 px-6 py-2 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-700">
                             Personal
                         </button>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 type Org = { id: string; name: string };
 
 const Sidebar = ({
@@ -10,30 +11,43 @@ const Sidebar = ({
     selectedOrg: Org | null;
     onOrgChange: (org: Org) => void;
 }) => {
-    const [orgs, setOrgs] = useState<any>([])
+    const [subsidiaries, setSubsidiaries] = useState<any>([])
+    const [accessToken, setAccessToken] = useState("")
 
     useEffect(() => {
-        fetchOrg()
-    }, []);
+        const token = localStorage.getItem("access_token")
+        console.log('token:', token);
+        if (token) setAccessToken(token)
+    }, [])
 
-    const fetchOrg = async () => {
+    useEffect(() => {
+        if (accessToken) {
+            fetchSubsidiaries()
+        }
+    }, [accessToken]);
+
+    const fetchSubsidiaries = async () => {
+        console.log('accesstoken:', accessToken);
+
         try {
-            const res = await fetch('/api/org', {
-                credentials: 'include',
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subsidiary`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
             })
 
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error);
-            }
+            const data = await res.json()
 
-            setOrgs(data);
+            if (!res.ok) throw new Error(data.message)
+
+            setSubsidiaries(data)
             if (data.length > 0) {
                 onOrgChange(data[0]);
             }
         } catch (err: any) {
-            console.error(err.message);
+            toast.error(err.message)
         }
+
     }
 
     return (
@@ -70,7 +84,7 @@ const Sidebar = ({
                         //     "ABU DLI Project",
                         //     "General Operations",
                         // ]
-                        orgs.map((org: { id: string; name: string }) => (
+                        subsidiaries.map((org: { id: string; name: string }) => (
                             <button
                                 key={org.id}
                                 onClick={() => onOrgChange(org)}
