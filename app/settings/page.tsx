@@ -3,12 +3,14 @@
 import React, { useEffect, useState } from "react"
 import Header from "../components/header"
 import toast from "react-hot-toast"
+import { hasPermission, hasRole } from "@/utils/auth"
 
 const Settings = () => {
-
+    const [mounted, setMounted] = useState(false)
     const [subsidiaries, setSubsidiaries] = useState<any[]>([])
     const [roles, setRoles] = useState<any[]>([])
     const [personnel, setPersonnel] = useState<any[]>([])
+    const [mode, setMode] = useState("Business");
 
     const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
     const [loadingPersonnel, setLoadingPersonnel] = useState(false)
@@ -40,8 +42,25 @@ const Settings = () => {
     const [deletingEntity, setDeletingEntity] = useState(false)
     const [entityNameToDelete, setEntityNameToDelete] = useState("")
     const [roleName, setRoleName] = useState("")
+    const [selectedEntity, setSelectedEntity] = useState<any | null>(null)
+    const [entityDetailsOpen, setEntityDetailsOpen] = useState(false)
+
+    const [editName, setEditName] = useState("")
+    const [editDescription, setEditDescription] = useState("")
+    const [editSector, setEditSector] = useState("")
+    const [updatingEntity, setUpdatingEntity] = useState(false)
 
     const [permissions, setPermissions] = useState<string[]>([])
+    const [businessCategory, setBusinessCategory] = useState<any>(null)
+    const [personnelDetailsOpen, setPersonnelDetailsOpen] = useState(false)
+    const [selectedPersonnel, setSelectedPersonnel] = useState<any>(null)
+    const [editIdentity, setEditIdentity] = useState("")
+    const [editRoleId, setEditRoleId] = useState("")
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
     const groupedPermissions = allPermissions.reduce((acc: any, perm: any) => {
         const module = perm.name.split("_")[0]
 
@@ -65,6 +84,8 @@ const Settings = () => {
             fetchPermissions()
         }
     }, [accessToken])
+
+    if (!mounted) return null
 
     const fetchRoles = async () => {
         setLoadingRole(true);
@@ -107,7 +128,6 @@ const Settings = () => {
             toast.error(err.message)
 
         }
-
     }
 
     const fetchSubsidiaries = async () => {
@@ -129,7 +149,6 @@ const Settings = () => {
         } finally {
             setLoadingSubsidiaries(false)
         }
-
     }
 
     const fetchPersonnel = async () => {
@@ -218,6 +237,25 @@ const Settings = () => {
 
     }
 
+    const openEntityDetails = (entity: any) => {
+        setSelectedEntity(entity)
+
+        setEditName(entity.name)
+        setEditDescription(entity.description)
+        setEditSector(entity.industrial_sector)
+
+        const business = entity.categories?.business
+
+        setBusinessCategory(business)
+
+        setEntityDetailsOpen(true)
+    }
+
+    const openPersonnelDetails = (person: any) => {
+        setSelectedPersonnel(person)
+        setPersonnelDetailsOpen(true)
+    }
+
     const handleCreatePersonnel = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
 
@@ -289,6 +327,52 @@ const Settings = () => {
             toast.error(err.message)
         } finally {
             setCreatingPersonnel(false)
+        }
+    }
+
+    const updateEntity = async (e: any) => {
+        e.preventDefault()
+
+        if (!selectedEntity) return
+
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/subsidiary/${selectedEntity.id}`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                    body: JSON.stringify({
+                        name: editName,
+                        description: editDescription,
+                        industrial_sector: editSector,
+
+                        categories: {
+                            business: {
+                                seat_throughput: businessCategory?.seat_throughput,
+                                project_inflow: businessCategory?.project_inflow,
+                                inventory: businessCategory?.inventory,
+                                monthly_dept: businessCategory?.monthly_dept,
+                                net_capital: businessCategory?.net_capital,
+                            }
+                        }
+                    })
+                }
+            )
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.message)
+
+            toast.success("Subsidiary updated")
+
+            fetchSubsidiaries()
+        } catch (err: any) {
+            toast.error(err.message)
+        } finally {
+            setUpdatingEntity(false)
         }
     }
 
@@ -370,36 +454,6 @@ const Settings = () => {
         }
     }
 
-    const updateRolePermission = async (roleId: string, permission: string, value: boolean) => {
-
-        try {
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/roles/${roleId}`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${accessToken}`
-                },
-                body: JSON.stringify({
-                    permission,
-                    value
-                })
-            })
-
-            const data = await res.json()
-
-            if (!res.ok) throw new Error(data.message)
-
-            fetchRoles()
-
-        } catch (err: any) {
-
-            toast.error(err.message)
-
-        }
-
-    }
-
     const deleteEntity = async () => {
         if (!entityToDelete) return
 
@@ -436,10 +490,9 @@ const Settings = () => {
     }
 
     return (
-
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-16">
 
-            <Header />
+            <Header mode={mode} onModeChange={setMode} />
 
             <div className="max-w-[1600px] mx-auto px-6 pt-8">
 
@@ -459,92 +512,102 @@ const Settings = () => {
 
                     </div>
                     <div className="flex justify-end gap-4">
-                        <button onClick={() => setPersonnelModalOpen(true)} className="bg-slate-900 text-white px-6 py-3.5 rounded-xl text-xs flex items-center gap-2 hover:bg-black transition-all uppercase tracking-wide font-black">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                                <circle cx="9" cy="7" r="4" />
-                                <line x1="19" x2="19" y1="8" y2="14" />
-                                <line x1="22" x2="16" y1="11" y2="11" />
-                            </svg>
-                            Add Personnel
-                        </button>
+                        {hasRole(["CEO", "SUPERADMIN"]) && (
+                            <button onClick={() => setPersonnelModalOpen(true)} className="bg-slate-900 text-white px-6 py-3.5 rounded-xl text-xs flex items-center gap-2 hover:bg-black transition-all uppercase tracking-wide font-black">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <line x1="19" x2="19" y1="8" y2="14" />
+                                    <line x1="22" x2="16" y1="11" y2="11" />
+                                </svg>
+                                Add Personnel
+                            </button>
+                        )}
 
-                        <button onClick={() => setEntityModalOpen(true)} className="bg-red-600 text-white px-6 py-3.5 rounded-xl text-xs flex items-center gap-2 hover:bg-red-700 transition-all uppercase tracking-wide font-black">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                        {hasPermission("SUBSIDIARY_CREATE") && (
+                            <button onClick={() => setEntityModalOpen(true)} className="bg-red-600 text-white px-6 py-3.5 rounded-xl text-xs flex items-center gap-2 hover:bg-red-700 transition-all uppercase tracking-wide font-black">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M8 12h8" />
+                                    <path d="M12 8v8" />
+                                </svg>
+                                Deploy Entity
+                            </button>
+                        )}
+
+                        {hasPermission("ROLE_CREATE") && (
+                            <button
+                                onClick={() => setRoleModalOpen(true)}
+                                className="bg-slate-900 text-white px-6 py-3 rounded-xl text-xs font-black uppercase"
                             >
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M8 12h8" />
-                                <path d="M12 8v8" />
-                            </svg>
-                            Deploy Entity
-                        </button>
-                        <button
-                            onClick={() => setRoleModalOpen(true)}
-                            className="bg-slate-900 text-white px-6 py-3 rounded-xl text-xs font-black uppercase"
-                        >
-                            Add Role
-                        </button>
+                                Add Role
+                            </button>
+                        )}
                     </div>
 
                 </div>
 
                 <div className="grid xl:grid-cols-2 gap-8">
                     {/* PERSONNEL */}
-                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
-                        <div className="p-6 border-b border-black/5">
-                            <h3 className="font-black text-sm uppercase">
-                                Executive Personnel
-                            </h3>
+                    {hasRole(["CEO", "SUPERADMIN"]) && (
+                        <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
+                            <div className="p-6 border-b border-black/5">
+                                <h3 className="font-black text-sm uppercase">
+                                    Executive Personnel
+                                </h3>
+                            </div>
+                            {loadingPersonnel ? (
+                                <div className="p-6 text-sm text-slate-400">
+                                    Loading personnel...
+                                </div>) :
+                                (
+                                    <div>
+                                        {personnel.map((person: any) => (
+                                            <div
+                                                key={person.id}
+                                                onClick={() => openPersonnelDetails(person)}
+                                                className="p-5 border-b border-black/5 flex gap-4 cursor-pointer hover:bg-slate-50 transition"
+                                            >
+                                                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+
+                                                    {(person.identity || "?").charAt(0)}
+
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm">
+                                                        {person.identity}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {person.title}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                         </div>
-                        {loadingPersonnel ? (
-                            <div className="p-6 text-sm text-slate-400">
-                                Loading personnel...
-                            </div>) :
-                            (
-                                <div>
-                                    {personnel.map((person: any) => (
-                                        <div
-                                            key={person.id}
-                                            className="p-5 border-b border-black/5 flex gap-4"
-                                        >
-                                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
-
-                                                {(person.identity || "?").charAt(0)}
-
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-sm">
-                                                    {person.identity}
-                                                </p>
-                                                <p className="text-xs text-slate-500">
-                                                    {person.title}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                    </div>
+                    )}
                     {/* ENTITIES */}
                     <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
                         <div className="p-6 border-b border-black/5">
@@ -559,40 +622,32 @@ const Settings = () => {
                             (
                                 <div>
                                     {subsidiaries.map((entity: any) => (
+                                        // <div
+                                        //     key={entity.id}
+                                        //     className="cursor-pointer group p-5 border-b border-slate-100 flex items-center justify-between hover:bg-slate-50 transition"
+                                        // >
                                         <div
                                             key={entity.id}
-                                            className="group p-5 border-b border-slate-100 flex items-center justify-between hover:bg-slate-50 transition"
+                                            onClick={() => openEntityDetails(entity)}
+                                            className="cursor-pointer group p-5 border-b border-slate-100 flex items-center justify-between hover:bg-slate-50 transition"
                                         >
-                                            {/* <div
-                                            key={entity.id}
-                                            className="group border border-black/10 rounded-2xl p-4 flex justify-between items-center hover:bg-slate-50 transition"
-                                        > */}
-
                                             <span className="text-sm font-medium">
                                                 {entity.name}
                                             </span>
 
-                                            {/* <button
-                                                onClick={() => {
-                                                    setEntityToDelete(entity.id)
-                                                    setEntityNameToDelete(entity.name)
-                                                    setDeleteModalOpen(true)
-                                                }}
-                                                className="opacity-0 group-hover:opacity-100 transition text-slate-400 hover:text-red-600"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash2 lucide-trash-2" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>
-                                            </button> */}
-                                            <button
-                                                onClick={() => {
-                                                    setEntityToDelete(entity.id)
-                                                    setEntityNameToDelete(entity.name)
-                                                    setDeleteModalOpen(true)
-                                                }}
-                                                className="opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 text-red-500 hover:text-red-600
+                                            {hasPermission("SUBSIDIARY_DELETE") && (
+                                                <button
+                                                    onClick={() => {
+                                                        setEntityToDelete(entity.id)
+                                                        setEntityNameToDelete(entity.name)
+                                                        setDeleteModalOpen(true)
+                                                    }}
+                                                    className="opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 text-red-500 hover:text-red-600
   "
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash2 lucide-trash-2" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>
-                                            </button>
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash2 lucide-trash-2" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -604,75 +659,77 @@ const Settings = () => {
                 {/* Role Section */}
                 <div className="mt-10">
                     {/* ROLES */}
-                    <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
-                        <div className="p-6 border-b border-black/5 flex justify-between">
+                    {hasPermission("ROLE_CREATE") && (
+                        <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
+                            <div className="p-6 border-b border-black/5 flex justify-between">
 
-                            <h3 className="font-black text-sm uppercase">
-                                Access Roles
-                            </h3>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            {loadingRole ? (
-                                <div className="p-6 text-sm text-slate-400">
-                                    Loading roles...
-                                </div>) :
-                                (
-                                    <div className="flex flex-wrap gap-2">
-                                        {roles.map((role) => (
-                                            <button
-                                                key={role.id}
-                                                onClick={() => selectRole(role)}
-                                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase border transition ${selectedRoleId === role.id
-                                                    ? "bg-slate-900 text-white border-slate-900"
-                                                    : "bg-white text-slate-700 border-black/10 hover:bg-slate-100"
-                                                    }`}
-                                            >
-                                                {role.name}
-                                            </button>
-                                        ))}
-
-                                    </div>
-                                )}
-
-
-                            <div className="grid md:grid-cols-3 gap-6">
-                                {Object.entries(groupedPermissions).map(([module, actions]) => {
-                                    const modulePermissions = allPermissions.filter(
-                                        (p) => p.name.startsWith(module)
-                                    )
-                                    return (
-                                        <div key={module} className="border border-black/5 rounded-xl p-4">
-
-                                            <p className="text-xs font-black uppercase mb-4 text-slate-500">
-                                                {module}
-                                            </p>
-                                            <div className="space-y-2">
-                                                {modulePermissions.map((perm: any) => (
-                                                    <label key={perm.id} className="flex items-center gap-2 text-sm">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedPermissions.includes(perm.id)}
-                                                            onChange={() => togglePermission(perm.id)}
-                                                        />
-                                                        {perm.name.replace(module + "_", "")}
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )
-                                })}
+                                <h3 className="font-black text-sm uppercase">
+                                    Access Roles
+                                </h3>
                             </div>
 
-                            <button
-                                onClick={saveRolePermissions}
-                                className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-black uppercase"
-                            >
-                                {updatingRolePermission ? 'Saving...' : 'Save Permissions'}
-                            </button>
+                            <div className="p-6 space-y-6">
+                                {loadingRole ? (
+                                    <div className="p-6 text-sm text-slate-400">
+                                        Loading roles...
+                                    </div>) :
+                                    (
+                                        <div className="flex flex-wrap gap-2">
+                                            {roles.map((role) => (
+                                                <button
+                                                    key={role.id}
+                                                    onClick={() => selectRole(role)}
+                                                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase border transition ${selectedRoleId === role.id
+                                                        ? "bg-slate-900 text-white border-slate-900"
+                                                        : "bg-white text-slate-700 border-black/10 hover:bg-slate-100"
+                                                        }`}
+                                                >
+                                                    {role.name}
+                                                </button>
+                                            ))}
 
+                                        </div>
+                                    )}
+
+
+                                <div className="grid md:grid-cols-3 gap-6">
+                                    {Object.entries(groupedPermissions).map(([module, actions]) => {
+                                        const modulePermissions = allPermissions.filter(
+                                            (p) => p.name.startsWith(module)
+                                        )
+                                        return (
+                                            <div key={module} className="border border-black/5 rounded-xl p-4">
+
+                                                <p className="text-xs font-black uppercase mb-4 text-slate-500">
+                                                    {module}
+                                                </p>
+                                                <div className="space-y-2">
+                                                    {modulePermissions.map((perm: any) => (
+                                                        <label key={perm.id} className="flex items-center gap-2 text-sm">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedPermissions.includes(perm.id)}
+                                                                onChange={() => togglePermission(perm.id)}
+                                                            />
+                                                            {perm.name.replace(module + "_", "")}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+
+                                <button
+                                    onClick={saveRolePermissions}
+                                    className="bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-black uppercase"
+                                >
+                                    {updatingRolePermission ? 'Saving...' : 'Save Permissions'}
+                                </button>
+
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -767,6 +824,264 @@ const Settings = () => {
                         </div>
 
                     </div>
+                </div>
+            )}
+
+            {entityDetailsOpen && selectedEntity && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center">
+
+                    <div className="bg-white w-[650px] rounded-3xl border border-black/5 shadow-xl">
+
+                        {/* HEADER */}
+
+                        <div className="p-6 border-b border-black/5 flex justify-between items-center">
+
+                            <h2 className="text-lg font-black">
+                                {selectedEntity.name}
+                            </h2>
+
+                            <button
+                                onClick={() => setEntityDetailsOpen(false)}
+                                className="text-slate-400 hover:text-red-500"
+                            >
+                                ✕
+                            </button>
+
+                        </div>
+
+
+                        <div className="p-6 space-y-6">
+
+                            {/* BASIC INFO */}
+
+                            <form onSubmit={updateEntity} className="space-y-4">
+
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-slate-500">
+                                        Entity Name
+                                    </label>
+
+                                    <input
+                                        value={editName}
+                                        disabled={!hasPermission("SUBSIDIARY_UPDATE")}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        className="w-full border border-black/10 rounded-xl p-3 disabled:bg-gray-200"
+                                    />
+
+                                </div>
+
+
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-slate-500">
+                                        Description
+                                    </label>
+
+                                    <input
+                                        value={editDescription}
+                                        disabled={!hasPermission("SUBSIDIARY_UPDATE")}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                        className="w-full border border-black/10 rounded-xl p-3 disabled:bg-gray-200"
+                                    />
+
+                                </div>
+
+
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-slate-500">
+                                        Sector
+                                    </label>
+
+                                    <select
+                                        value={editSector}
+                                        disabled={!hasPermission("SUBSIDIARY_UPDATE")}
+                                        onChange={(e) => setEditSector(e.target.value)}
+                                        className="w-full border border-black/10 rounded-xl p-3 disabled:bg-gray-200"
+                                    >
+
+                                        <option value="technology">Technology</option>
+                                        <option value="real_estate">Real Estate</option>
+                                        <option value="logistics">Logistics</option>
+                                        <option value="education">Education</option>
+                                        <option value="media">Media</option>
+
+                                    </select>
+
+                                </div>
+
+
+                                {hasPermission("SUBSIDIARY_UPDATE") && (
+                                    <button
+                                        disabled={updatingEntity}
+                                        className="bg-red-600 text-white px-5 py-3 rounded-xl text-sm font-bold"
+                                    >
+                                        {updatingEntity ? "Updating..." : "Update Entity"}
+                                    </button>
+                                )}
+                            </form>
+
+
+                            {/* MANAGERS */}
+                            <div>
+
+                                <h3 className="text-sm font-black uppercase mb-4">
+                                    Assigned Managers
+                                </h3>
+
+                                <div className="space-y-3">
+
+                                    {selectedEntity.managers.length === 0 && (
+                                        <p className="text-sm text-slate-400">
+                                            No managers assigned
+                                        </p>
+                                    )}
+
+                                    {selectedEntity.managers.map((m: any) => (
+
+                                        <div
+                                            key={m.personnel.id}
+                                            className="flex items-center gap-3 border border-black/5 p-3 rounded-xl"
+                                        >
+
+                                            <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center text-sm font-bold">
+                                                {m.personnel.identity.charAt(0)}
+                                            </div>
+
+                                            <div>
+
+                                                <p className="text-sm font-bold">
+                                                    {m.personnel.identity}
+                                                </p>
+
+                                                <p className="text-xs text-slate-500">
+                                                    Role ID: {m.personnel.roleId}
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+                                    ))}
+
+                                </div>
+
+                            </div>
+
+                            {/* CATEGORIES */}
+                            {hasPermission("SUBSIDIARY_UPDATE") && (
+                                <div>
+                                    <h3 className="text-sm font-black uppercase mb-4">
+                                        Categories
+                                    </h3>
+
+                                    {businessCategory && (
+
+                                        <div className="grid grid-cols-2 gap-4">
+
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500">
+                                                    Seat Throughput
+                                                </label>
+
+                                                <input
+                                                    type="number"
+                                                    value={businessCategory.seat_throughput || ""}
+                                                    onChange={(e) =>
+                                                        setBusinessCategory({
+                                                            ...businessCategory,
+                                                            seat_throughput: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full border border-black/10 rounded-xl p-3"
+                                                />
+                                            </div>
+
+
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500">
+                                                    Project Inflow
+                                                </label>
+
+                                                <input
+                                                    type="number"
+                                                    value={businessCategory.project_inflow || ""}
+                                                    onChange={(e) =>
+                                                        setBusinessCategory({
+                                                            ...businessCategory,
+                                                            project_inflow: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full border border-black/10 rounded-xl p-3"
+                                                />
+                                            </div>
+
+
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500">
+                                                    Inventory
+                                                </label>
+
+                                                <input
+                                                    type="number"
+                                                    value={businessCategory.inventory || ""}
+                                                    onChange={(e) =>
+                                                        setBusinessCategory({
+                                                            ...businessCategory,
+                                                            inventory: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full border border-black/10 rounded-xl p-3"
+                                                />
+                                            </div>
+
+
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500">
+                                                    Monthly Debt
+                                                </label>
+
+                                                <input
+                                                    type="number"
+                                                    value={businessCategory.monthly_dept || ""}
+                                                    onChange={(e) =>
+                                                        setBusinessCategory({
+                                                            ...businessCategory,
+                                                            monthly_dept: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full border border-black/10 rounded-xl p-3"
+                                                />
+                                            </div>
+
+
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500">
+                                                    Net Capital
+                                                </label>
+
+                                                <input
+                                                    type="number"
+                                                    value={businessCategory.net_capital || ""}
+                                                    onChange={(e) =>
+                                                        setBusinessCategory({
+                                                            ...businessCategory,
+                                                            net_capital: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full border border-black/10 rounded-xl p-3"
+                                                />
+                                            </div>
+
+                                        </div>
+
+                                    )}
+
+                                </div>
+                            )}
+
+                        </div>
+
+                    </div>
+
                 </div>
             )}
 
@@ -952,6 +1267,88 @@ const Settings = () => {
                             </form>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {personnelDetailsOpen && selectedPersonnel && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center">
+
+                    <div className="bg-white w-[500px] rounded-3xl border border-black/5 shadow-xl">
+
+                        {/* HEADER */}
+                        <div className="p-6 border-b border-black/5 flex justify-between items-center">
+
+                            <h2 className="text-lg font-black">
+                                Personnel Details
+                            </h2>
+
+                            <button
+                                onClick={() => setPersonnelDetailsOpen(false)}
+                                className="text-slate-400 hover:text-red-500"
+                            >
+                                ✕
+                            </button>
+
+                        </div>
+
+                        <div className="p-6 space-y-6">
+
+                            {/* Identity */}
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500">
+                                    Identity
+                                </label>
+
+                                <input
+                                    value={selectedPersonnel.identity}
+                                    disabled
+                                    className="w-full border border-black/10 rounded-xl p-3 bg-slate-100"
+                                />
+                            </div>
+
+                            {/* Role */}
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500">
+                                    Role
+                                </label>
+
+                                <input
+                                    value={selectedPersonnel.role?.name}
+                                    disabled
+                                    className="w-full border border-black/10 rounded-xl p-3 bg-slate-100"
+                                />
+                            </div>
+
+                            {/* Role ID */}
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500">
+                                    Role ID
+                                </label>
+
+                                <input
+                                    value={selectedPersonnel.roleId}
+                                    disabled
+                                    className="w-full border border-black/10 rounded-xl p-3 bg-slate-100"
+                                />
+                            </div>
+
+                            {/* Created */}
+                            <div>
+                                <label className="text-xs font-bold uppercase text-slate-500">
+                                    Created At
+                                </label>
+
+                                <input
+                                    value={new Date(selectedPersonnel.createdAt).toLocaleString()}
+                                    disabled
+                                    className="w-full border border-black/10 rounded-xl p-3 bg-slate-100"
+                                />
+                            </div>
+
+                        </div>
+
+                    </div>
+
                 </div>
             )}
 

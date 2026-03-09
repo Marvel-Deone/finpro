@@ -37,6 +37,8 @@ const ExecutiveLogin = () => {
             }
             console.log('res:', data);
             localStorage.setItem("access_token", data.access_token);
+            localStorage.setItem("role", data.personnel.role)
+            localStorage.setItem("permissions", JSON.stringify(data.permissions));
             toast.success("Login successfully.");
             window.location.href = '/dashboard'
         } catch (err: any) {
