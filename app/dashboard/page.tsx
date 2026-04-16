@@ -56,10 +56,11 @@ const Dashboard = () => {
     const onResize = () => {
       if (window.innerWidth >= 1024) setSidebarOpen(false);
     };
+
     if (accessToken) {
       fetchModuleTabs();
     }
-    // fetchModuleTab();
+
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [accessToken]);
@@ -117,13 +118,6 @@ const Dashboard = () => {
     setFields(updated);
   };
 
-  // const handleInputNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const value = parseInt(e.target.value, 10);
-  //   // if (!isNaN(value) && value >= 0) {
-  //   //   setInputCount(value);
-  //   // }
-  // }
-
   const handleModuleCLick = (tab: any) => {
     setActiveTab(tab.module_name)
     setActiveModuleTab(tab.id)
@@ -144,6 +138,13 @@ const Dashboard = () => {
 
     return true;
   };
+
+  const formattedFields = fields.map(field => ({
+    ...field,
+    options: field.options?.map(opt =>
+      opt.toLowerCase().trim().replace(/\s+/g, "_")
+    )
+  }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +173,7 @@ const Dashboard = () => {
           module_name: module_name,
           module_desc: (e.target as any).module_desc.value,
           no_input: fields.length,
-          input_fields: fields,
+          input_fields: formattedFields,
           record: {},
           btn_text: (e.target as any).btn_text.value,
           subsidiaryId: selectedOrg.id,
@@ -183,6 +184,7 @@ const Dashboard = () => {
 
       toast.success("Module created");
       setModuleModalOpen(false);
+      fetchModuleTabs();
       setFields([]);
 
     } catch (err: any) {
@@ -510,55 +512,14 @@ const Dashboard = () => {
                       placeholder="0"
                       required
                       disabled={isSubmittingModule}
-                    // onChange={handleInputNoChange}
                     />
                   </div>
-                  {/* If conditions will be here  */}
-                  {/* {
-                    inputCount > 0 && (
-                      <div className="flex flex-col gap-6">
-                        {Array.from({ length: inputCount }).map((_, index) => (
-                          <div key={index} className="flex gap-2">
-                            <div className="flex flex-col gap-2 w-full font-semibold text-left">
-                              <label className="text-xs text-slate-500 ml-1 uppercase tracking-wider">
-                                Input Text
-                              </label>
-                              <input
-                                className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
-                                type="text"
-                                name="input_text"
-                                placeholder="Enter input text"
-                                required
-                                disabled={isSubmittingModule}
-                                onChange={handleInputNoChange}
-                              />
-                            </div>
-                            <div className="flex flex-col gap-2 w-full font-semibold text-left">
-                              <label className="text-xs text-slate-500 ml-1 uppercase tracking-wider">
-                                Input Type
-                              </label>
-                              <select
-                                className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-gray-300"
-                                name="input_type"
-                                required
-                                disabled={isSubmittingModule}
-                              >
-                                <option className="text-gray-200">Type</option>
-                                <option value="text">Text</option>
-                                <option value="number">Number</option>
-                                <option value="select">Select</option>
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  } */}
+
+                  {/* Conditional input fields */}
                   <div className="flex flex-col gap-6">
                     {fields.map((field, index) => (
                       <div key={index} className="p-4 border rounded-xl bg-slate-50 space-y-4">
 
-                        {/* Top row */}
                         <div className="flex gap-2">
                           <input
                             placeholder="Field key (e.g. name)"
@@ -597,15 +558,20 @@ const Dashboard = () => {
                             <p className="text-xs text-slate-500">Options</p>
 
                             {field.options?.map((opt, optIndex) => (
-                              <input
-                                key={optIndex}
-                                value={opt}
-                                onChange={(e) =>
-                                  updateOption(index, optIndex, e.target.value)
-                                }
-                                placeholder={`Option ${optIndex + 1}`}
-                                className="w-full px-3 py-2 border rounded-lg"
-                              />
+                              <>
+                                <input
+                                  key={optIndex + index}
+                                  value={opt}
+                                  onChange={(e) =>
+                                    updateOption(index, optIndex, e.target.value)
+                                  }
+                                  placeholder={`Option ${optIndex + 1}`}
+                                  className="w-full px-3 py-2 border rounded-lg"
+                                />
+                                <p className="text-xs text-slate-400">
+                                  value: {opt.toLowerCase().trim().replace(/\s+/g, "_")}
+                                </p>
+                              </>
                             ))}
 
                             <button

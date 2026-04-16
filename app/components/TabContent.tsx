@@ -87,12 +87,12 @@ const TabContent = ({
 
   const [overview, setOverview] = useState<any>({
     seat_throughput: 0,
-      project_inflow: 0,
-      inventory: 0,
-      monthly_dept: 0,
-      net_capital: 0,
-      compliance_audit: 0,
-      asset: 0,
+    project_inflow: 0,
+    inventory: 0,
+    monthly_dept: 0,
+    net_capital: 0,
+    compliance_audit: 0,
+    asset: 0,
   });
   const [exams, setExams] = useState<any[]>([]);
   const [stocks, setStocks] = useState<any[]>([]);
@@ -504,6 +504,27 @@ const TabContent = ({
     month: "long",
   });
 
+  // const dateFieldKey = currentTab.input_fields.find(f => f.type === "datetime")?.key;
+
+  // Declare currentTab before using it
+  const currentTab = moduleTabs.find(tab => tab.id === activeModuleTab);
+
+  // Find the key for the datetime field in currentTab.input_fields
+  const dateFieldKey =
+    currentTab && Array.isArray(currentTab.input_fields)
+      ? (currentTab.input_fields.find((f: any) => f.type === "datetime")?.key as string)
+      : "event_datetime";
+
+  const calendarEventsByDate = events.reduce((acc, event) => {
+    const date = new Date(event[dateFieldKey]);
+    const key = date.toISOString().split("T")[0];
+
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(event);
+
+    return acc;
+  }, {});
+
   const eventsByDate = useMemo(() => {
     const map: Record<string, any[]> = {};
 
@@ -633,11 +654,9 @@ const TabContent = ({
 
   const business = selectedOrg?.categories?.business ?? null;
 
-  const currentTab = moduleTabs.find(tab => tab.id === activeModuleTab);
+  // currentTab is now declared above
 
   const openModal = (tab: any) => {
-    console.log('tabfff:', tab);
-
     const initialData: any = {};
 
     tab.input_fields.forEach((field: any) => {
@@ -804,61 +823,290 @@ const TabContent = ({
                 {tab.records.length === 0 ? (
                   <NoData message="No records yet. Click the button above to add one." />
                 ) : (
-                  <>
-                    {stocks.map((stock) => (
-                      <div
-                        key={stock.id}
-                        className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm group hover:border-red-500 transition-all"
-                      >
-                        <div className="flex justify-between items-start">
-                          <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
-                            {stock.category}
-                          </span>
+                  tab.records.map((record: any, index: number) => (
+                    <div
+                      key={index}
+                      className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm group hover:border-red-500 transition-all"
+                    >
+                      {/* TOP BADGE (first field) */}
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg">
+                          {record[tab.input_fields[0]?.key]}
+                        </span>
+                      </div>
 
-                          <div className="flex flex-col items-end gap-1 text-slate-500">
-                            <button title="View Proof" className="text-emerald-500 hover:scale-110 transition-transform" type="button">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                <path d="m9 15 2 2 4-4" />
-                              </svg>
-                            </button>
-                            <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
-                              Auth: Ifeanyi
+                      {/* MAIN TITLE (second field) */}
+                      <h4 className="text-base font-bold mt-4 uppercase text-slate-900 truncate">
+                        {record[tab.input_fields[1]?.key]}
+                      </h4>
+
+                      {/* DESCRIPTION (third field) */}
+                      <p className="text-[11px] text-slate-500 mt-2 font-medium line-clamp-2 leading-relaxed">
+                        {record[tab.input_fields[2]?.key]}
+                      </p>
+
+                      {/* ALL OTHER FIELDS */}
+                      <div className="mt-6 pt-4 border-t border-slate-50 space-y-2">
+                        {tab.input_fields.slice(3).map((field: any) => (
+                          <div key={field.key} className="flex justify-between text-xs">
+                            <span className="text-slate-400 uppercase">
+                              {field.key}
+                            </span>
+                            <span className="font-bold text-slate-800">
+                              {renderCellValue(record[field.key], field)}
                             </span>
                           </div>
-                        </div>
-
-                        <h4 className="text-base font-bold mt-4 uppercase text-slate-900 truncate">
-                          {stock.asset_identity}
-                        </h4>
-
-                        <p className="text-[11px] text-slate-500 mt-2 font-medium line-clamp-2 leading-relaxed">
-                          {stock.operational_narrative}
-                        </p>
-
-                        <div className="mt-8 pt-6 border-t border-slate-50 flex items-end justify-between">
-                          <div>
-                            <p className="text-2xl font-bold">{stock.count}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                              Unit(s)
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5 tracking-widest">
-                              Strategic Value
-                            </p>
-                            <p className="text-base font-bold text-red-600">
-                              ₦{Number(stock.purchase_value).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </>
-
+                    </div>
+                  ))
                 )}
+              </div>
+            )}
+          </div>
+        );
+
+      case "calendar":
+        return (
+          <div className="animate-in fade-in duration-500">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">{tab.module_name}</h2>
+
+            {hasPermission("STOCK_CREATE") && (
+              <button
+                onClick={() => setFinanceModalOpen(true)}
+                className="bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide shadow-md"
+                disabled={!business?.id || isOrgLoading}
+                type="button"
+              >
+                {tab.btn_text}
+              </button>
+            )}
+
+            <div className="flex flex-col xl:flex-row gap-6 sm:gap-8">
+              <div className="w-full xl:w-96 shrink-0 bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between mb-6 sm:mb-8">
+                  <h3 className="text-base font-bold text-slate-900 uppercase tracking-tight">
+                    {monthName} {year}
+                  </h3>
+                  <div className="flex gap-1.5">
+                    <button onClick={() =>
+                      setCurrentDate(new Date(year, month - 1, 1))
+                    } className="p-1.5 text-slate-400 hover:text-red-600 transition-all" type="button">
+                      ←
+                    </button>
+                    <button onClick={() =>
+                      setCurrentDate(new Date(year, month + 1, 1))
+                    } className="p-1.5 text-slate-400 hover:text-red-600 transition-all" type="button">
+                      →
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 text-center mb-4">
+                  {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                    <div key={`day-${index}`} className="text-[10px] font-bold text-slate-300 py-2">
+                      {day}
+                    </div>
+                  ))}
+
+                  {calendarDays.map((day, index) => {
+                    if (!day) {
+                      return <div key={index} />; // empty cell
+                    }
+
+                    const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    const hasEvent = !!calendarEventsByDate[dateKey];
+
+                    const today = new Date();
+
+                    const isToday =
+                      day === today.getDate() &&
+                      month === today.getMonth() &&
+                      year === today.getFullYear();
+
+                    const baseClass =
+                      "cursor-pointer aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-bold border transition-all";
+
+                    const eventClass = hasEvent
+                      ? "bg-red-50 border-red-100 text-red-600"
+                      : "bg-white border-transparent text-slate-700 hover:bg-slate-50";
+
+                    const todayClass = isToday ? "ring-2 ring-red-500" : "";
+
+                    return (
+                      <div
+                        key={day + `_${index}`}
+                        onClick={() => handleDayClick(dateKey)}
+                        className={`${baseClass} ${eventClass} ${todayClass}`}
+                      >
+                        {day}
+                        {hasEvent && (
+                          <div className="w-1 h-1 rounded-full mt-0.5 bg-red-600" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex-1 bg-slate-900 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden min-h-[420px] shadow-xl">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-6 sm:mb-8">
+                    <h3 className="text-xl sm:text-2xl font-bold uppercase tracking-tight">
+                      Events
+                    </h3>
+
+                    <button onClick={openCreateEvent} className="px-4 py-2 text-xs font-bold bg-red-600 rounded-lg hover:bg-red-700 transition">
+                      + Add Event
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {events.length === 0 ? (
+                      <NoData message="No records yet. Click the button above to add one." />
+                    ) : (
+                      <>
+                        {events.map((item, index) => {
+                          const dateField = currentTab.input_fields.find((f: { type: string }) => f.type === "datetime");
+
+                          const titleField = currentTab.input_fields.find((f: { type: string }) => f.type === "title");
+
+                          const descField = currentTab.input_fields.find((f: { type: string }) => f.type === "textarea");
+
+                          return (
+                            <div
+                              key={`event-${index}`}
+                              className="rounded-xl p-4 border border-white/10 bg-white/5 hover:bg-white/10 transition-all"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                {/* Event Info */}
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-2">
+                                    {new Date(item[dateField?.key as keyof typeof item]).toLocaleString()}
+                                  </p>
+
+                                  <p className="text-sm font-bold uppercase truncate">
+                                    {item[titleField?.key as keyof typeof item]}
+                                  </p>
+
+                                  <p className="text-[10px] text-white/40 uppercase truncate">
+                                    {item[descField?.key as keyof typeof item]}
+                                  </p>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex gap-2 shrink-0">
+                                  {/* <button onClick={() => handleView(item)} className="px-2 py-1 text-[10px] font-bold bg-white/10 rounded hover:bg-white/20 transition">
+                                View
+                              </button> */}
+                                  <button onClick={() => openEditEvent(item)} className="px-2 py-1 text-[10px] font-bold bg-blue-600 rounded hover:bg-blue-700 transition">
+                                    Edit
+                                  </button>
+                                  <button onClick={() => openDeleteModal(item)} className="px-2 py-1 text-[10px] font-bold bg-red-600 rounded hover:bg-red-700 transition">
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {deleteTarget && (
+              <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center">
+
+                  <h3 className="text-lg font-bold mb-2">
+                    Delete Event?
+                  </h3>
+
+                  <p className="text-sm text-slate-500 mb-6">
+                    This action cannot be undone.
+                  </p>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setDeleteTarget(null)}
+                      className="flex-1 py-2 rounded-lg border"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      onClick={confirmDelete}
+                      className="flex-1 py-2 rounded-lg bg-red-600 text-white"
+                    >
+                      {isDeletingEvent ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {eventDetailsOpen && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+
+                <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-300">
+
+                  {/* HEADER */}
+                  <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">
+                        Events
+                      </h3>
+                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">
+                        {selectedDate?.toDateString()}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setEventDetailsOpen(false)}
+                      className="w-9 h-9 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:text-red-600 hover:scale-105 transition"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* BODY */}
+                  <div className="p-6 space-y-4 max-h-[420px] overflow-y-auto">
+
+                    {selectedEvents.length === 0 ? (
+                      <div className="text-center py-10">
+                        <p className="text-sm text-slate-400 font-semibold">
+                          No events scheduled
+                        </p>
+                      </div>
+                    ) : (
+                      selectedEvents.map((event, index) => {
+                        const dateObj = new Date(event.event_datetime);
+
+                        return (
+                          <div key={index} className="rounded-2xl border p-5">
+
+                            {currentTab.input_fields.map((field: any) => (
+                              <div key={field.key} className="flex justify-between text-sm">
+                                <span className="text-slate-400 uppercase">
+                                  {field.key}
+                                </span>
+
+                                <span className="font-bold text-slate-800">
+                                  {renderCellValue(event[field.key], field)}
+                                </span>
+                              </div>
+                            ))}
+
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
