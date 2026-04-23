@@ -6,6 +6,7 @@ import Header from "../components/header";
 import Sidebar from "../components/sidebar";
 import { hasPermission } from "@/utils/permissions"
 import TabContent from "../components/TabContent";
+import { Tab } from "@/types";
 
 type Org = { id: string; name: string };
 
@@ -20,14 +21,18 @@ const tabs = [
   { key: "history", label: "History", permission: "EXAM_READ" },
 ]
 
-type Tab = {
-  id: string;
-  label: string;
-  content_type: string;
-  input_fields?: { key: string; type: string; options?: string[] }[];
-};
-
 // const visibleTabs = tabs.filter(tab => hasPermission(tab.permission))
+const defaultFields = [
+  { key: "title", type: "string", options: [] },
+  { key: "description", type: "string", options: [] },
+  {
+    key: "category",
+    type: "select",
+    options: ["general", "operations"], // you can adjust defaults
+  },
+];
+
+const CORE_FIELDS = ["title", "description"];
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -41,9 +46,10 @@ const Dashboard = () => {
   const [isSubmittingModule, setIsSubmittingModule] = useState(false);
   // const [inputCount, setInputCount] = useState(0);
   const [accessToken, setAccessToken] = useState("");
+  const [contentType, setContentType] = useState("card");
   const [fields, setFields] = useState<
     { key: string; type: string; options?: string[] }[]
-  >([]);
+  >(defaultFields);
 
   useEffect(() => {
     setVisibleTabs(tabs.filter(tab => hasPermission(tab.permission)));
@@ -64,6 +70,28 @@ const Dashboard = () => {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [accessToken]);
+
+  useEffect(() => {
+  let baseFields = [
+    { key: "title", type: "string", options: [] },
+    { key: "description", type: "string", options: [] },
+    {
+      key: "category",
+      type: "select",
+      options: ["general", "important"],
+    },
+  ];
+
+  if (contentType === "calendar") {
+    baseFields.push({
+      key: "date",
+      type: "date",
+      options: [],
+    });
+  }
+
+  setFields(baseFields);
+}, [contentType]);
 
   const fetchModuleTabs = async () => {
     try {
@@ -102,6 +130,10 @@ const Dashboard = () => {
   };
 
   const removeField = (index: number) => {
+    if (CORE_FIELDS.includes(fields[index].key)) {
+      toast.error("This field cannot be removed");
+      return;
+    }
     setFields((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -158,7 +190,6 @@ const Dashboard = () => {
 
     try {
       setIsSubmittingModule(true);
-      console.log('accessTokenffff:', accessToken);
 
       const module_name = (e.target as any).module_name.value.trim().toLowerCase().replace(/\s+/g, '_');
 
@@ -185,7 +216,7 @@ const Dashboard = () => {
       toast.success("Module created");
       setModuleModalOpen(false);
       fetchModuleTabs();
-      setFields([]);
+      setFields(defaultFields);
 
     } catch (err: any) {
       toast.error(err.message);
@@ -368,9 +399,9 @@ const Dashboard = () => {
                       </button>
 
                       {/* Dynamic Tabs */}
-                      {visibleTabs.map((tab) => (
+                      {visibleTabs.map((tab, i) => (
                         <button
-                          key={tab.key}
+                          key={i}
                           onClick={() => setActiveTab(tab.key)}
                           className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
             ${activeTab === tab.key
@@ -382,9 +413,9 @@ const Dashboard = () => {
                         </button>
                       ))}
 
-                      {moduleTabs.map((tab: any) => (
+                      {moduleTabs.reverse().map((tab: any, i) => (
                         <button
-                          key={tab.id}
+                          key={i}
                           onClick={() => handleModuleCLick(tab)}
                           className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap capitalize
             ${activeTab === tab.module_name
@@ -466,12 +497,13 @@ const Dashboard = () => {
                       className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
                       name="content_type"
                       required
+                      onChange={(e) => setContentType(e.target.value)}
                       disabled={isSubmittingModule}
                     >
                       <option>Content Type</option>
                       <option value="card">Card</option>
                       <option value="table">Table</option>
-                      <option value="Calendar">Calendar</option>
+                      <option value="calendar">Calendar</option>
                     </select>
                   </div>
 
@@ -510,6 +542,7 @@ const Dashboard = () => {
                       type="number"
                       name="no_input"
                       placeholder="0"
+                      defaultValue={3}
                       required
                       disabled={isSubmittingModule}
                     />

@@ -50,3 +50,10 @@ export type Subsidiary = {
   };
   managers: any[];
 };
+
+export type Tab = {
+  id: string;
+  label: string;
+  content_type: string;
+  input_fields?: { key: string; type: string; options?: string[] }[];
+};

@@ -84,6 +84,7 @@ const TabContent = ({
   const [formData, setFormData] = useState<any>({});
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [liabilityFile, setLiabilityFile] = useState<File | null>(null);
 
   const [overview, setOverview] = useState<any>({
     seat_throughput: 0,
@@ -98,6 +99,7 @@ const TabContent = ({
   const [stocks, setStocks] = useState<any[]>([]);
   const [loans, setLoans] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [eventMode, setEventMode] = useState<"create" | "edit">("create");
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -213,6 +215,20 @@ const TabContent = ({
     setEvents(data);
   };
 
+  const fetchHistory = async (categoryIdValue: string) => {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/history?categoryId=${categoryIdValue}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    const data = await res.json();
+    setHistory(data);
+  };
+
   const refetchAll = async (categoryIdValue: string) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -227,6 +243,7 @@ const TabContent = ({
         fetchExams(categoryIdValue, controller.signal),
         fetchLoans(categoryIdValue, controller.signal),
         fetchEvents(categoryIdValue),
+        fetchHistory(categoryIdValue),
       ]);
     } catch (err: any) {
       if (err?.name !== "AbortError") {
@@ -393,16 +410,6 @@ const TabContent = ({
       const principal = formData.get("principal");
       if (!principal) return;
 
-      // const payload = {
-      //   subsidiaryCategoryId: business.id,
-      //   ledger_identity: String(formData.get("ledger_identity") ?? ""),
-      //   operational_narrative: String(formData.get("operational_narrative") ?? ""),
-      //   principal: Number(principal),
-      //   term: String(formData.get("term") ?? ""),
-      //   category: "Loan",
-      //   liability_proof: String(formData.get("liability_proof") ?? ""),
-      // };
-
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/loans`,
         {
@@ -517,7 +524,11 @@ const TabContent = ({
 
   const calendarEventsByDate = events.reduce((acc, event) => {
     const date = new Date(event[dateFieldKey]);
-    const key = date.toISOString().split("T")[0];
+    console.log('datej:', date);
+
+    if (date.toString() === "Invalid Date") return;
+
+    const key = date ? date.toISOString().split("T")[0] : "";
 
     if (!acc[key]) acc[key] = [];
     acc[key].push(event);
@@ -674,10 +685,15 @@ const TabContent = ({
     }));
   };
 
+  const formatFromBackend = (value: string) => {
+    return value
+      .split("_")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
   const handleDynamicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Hello');
-
 
     if (!currentTab) return;
 
@@ -800,7 +816,7 @@ const TabContent = ({
           <div className="animate-in fade-in duration-500 text-left">
             <div className="flex justify-between items-center mb-8 text-slate-900">
               <h3 className="text-xl font-bold uppercase tracking-tight">
-                Asset Repository
+                {tab.module_name}
               </h3>
               {hasPermission("STOCK_CREATE") && (
                 <button
@@ -816,8 +832,6 @@ const TabContent = ({
 
             {isOrgLoading ? (
               <LoadingState title="Loading stocks..." />
-            ) : stocks.length === 0 ? (
-              <EmptyState title="No stocks recorded yet." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {tab.records.length === 0 ? (
@@ -869,9 +883,9 @@ const TabContent = ({
       case "calendar":
         return (
           <div className="animate-in fade-in duration-500">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4">{tab.module_name}</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4 capitalize">{tab.module_name}</h2>
 
-            {hasPermission("STOCK_CREATE") && (
+            {/* {hasPermission("STOCK_CREATE") && (
               <button
                 onClick={() => setFinanceModalOpen(true)}
                 className="bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide shadow-md"
@@ -880,7 +894,7 @@ const TabContent = ({
               >
                 {tab.btn_text}
               </button>
-            )}
+            )} */}
 
             <div className="flex flex-col xl:flex-row gap-6 sm:gap-8">
               <div className="w-full xl:w-96 shrink-0 bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm">
@@ -915,7 +929,7 @@ const TabContent = ({
                     }
 
                     const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                    const hasEvent = !!calendarEventsByDate[dateKey];
+                    const hasEvent = !!eventsByDate[dateKey];
 
                     const today = new Date();
 
@@ -957,60 +971,52 @@ const TabContent = ({
                     </h3>
 
                     <button onClick={openCreateEvent} className="px-4 py-2 text-xs font-bold bg-red-600 rounded-lg hover:bg-red-700 transition">
-                      + Add Event
+                      + {tab.btn_text}
                     </button>
                   </div>
 
                   <div className="space-y-4">
-                    {events.length === 0 ? (
+                    {tab.records.length === 0 ? (
                       <NoData message="No records yet. Click the button above to add one." />
                     ) : (
                       <>
-                        {events.map((item, index) => {
-                          const dateField = currentTab.input_fields.find((f: { type: string }) => f.type === "datetime");
+                        {tab.records.map((record: any, index: number) => (
+                          <div
+                            key={`event-${index}`}
+                            className="rounded-xl p-4 border border-white/10 bg-white/5 hover:bg-white/10 transition-all"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              {/* Event Info */}
+                              <div className="min-w-0">
+                                {/* <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-2">
+                                  {new Date(item.event_datetime).toLocaleString()}
+                                </p> */}
+                                {/* Title */}
+                                <p className="text-sm font-bold uppercase truncate">
+                                  {record[tab.input_fields[1]?.key]}
+                                </p>
 
-                          const titleField = currentTab.input_fields.find((f: { type: string }) => f.type === "title");
+                                {/* Description */}
+                                <p className="text-[10px] text-white/40 uppercase truncate">
+                                  {record[tab.input_fields[2]?.key]}
+                                </p>
+                              </div>
 
-                          const descField = currentTab.input_fields.find((f: { type: string }) => f.type === "textarea");
-
-                          return (
-                            <div
-                              key={`event-${index}`}
-                              className="rounded-xl p-4 border border-white/10 bg-white/5 hover:bg-white/10 transition-all"
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                {/* Event Info */}
-                                <div className="min-w-0">
-                                  <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-2">
-                                    {new Date(item[dateField?.key as keyof typeof item]).toLocaleString()}
-                                  </p>
-
-                                  <p className="text-sm font-bold uppercase truncate">
-                                    {item[titleField?.key as keyof typeof item]}
-                                  </p>
-
-                                  <p className="text-[10px] text-white/40 uppercase truncate">
-                                    {item[descField?.key as keyof typeof item]}
-                                  </p>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex gap-2 shrink-0">
-                                  {/* <button onClick={() => handleView(item)} className="px-2 py-1 text-[10px] font-bold bg-white/10 rounded hover:bg-white/20 transition">
+                              {/* Actions */}
+                              <div className="flex gap-2 shrink-0">
+                                {/* <button onClick={() => handleView(item)} className="px-2 py-1 text-[10px] font-bold bg-white/10 rounded hover:bg-white/20 transition">
                                 View
                               </button> */}
-                                  <button onClick={() => openEditEvent(item)} className="px-2 py-1 text-[10px] font-bold bg-blue-600 rounded hover:bg-blue-700 transition">
-                                    Edit
-                                  </button>
-                                  <button onClick={() => openDeleteModal(item)} className="px-2 py-1 text-[10px] font-bold bg-red-600 rounded hover:bg-red-700 transition">
-                                    Delete
-                                  </button>
-                                </div>
+                                {/* <button onClick={() => openEditEvent(item)} className="px-2 py-1 text-[10px] font-bold bg-blue-600 rounded hover:bg-blue-700 transition">
+                                  Edit
+                                </button>
+                                <button onClick={() => openDeleteModal(item)} className="px-2 py-1 text-[10px] font-bold bg-red-600 rounded hover:bg-red-700 transition">
+                                  Delete
+                                </button> */}
                               </div>
                             </div>
-                          )
-                        }
-                        )}
+                          </div>
+                        ))}
                       </>
                     )}
                   </div>
@@ -1084,7 +1090,8 @@ const TabContent = ({
                       </div>
                     ) : (
                       selectedEvents.map((event, index) => {
-                        const dateObj = new Date(event.event_datetime);
+                        // const dateObj = new Date(event.event_datetime);
+                        const dateObj = event.event_datetime ? new Date(event.event_datetime) : null;
 
                         return (
                           <div key={index} className="rounded-2xl border p-5">
@@ -1152,9 +1159,9 @@ const TabContent = ({
             className="bg-slate-50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-medium focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-300"
           >
             <option value="">Select {field.key}</option>
-            {field.options.map((opt: string) => (
-              <option key={opt} value={opt}>
-                {opt}
+            {field.options.map((opt: string, i: number) => (
+              <option key={i} value={opt}>
+                {formatFromBackend(opt)}
               </option>
             ))}
           </select>
@@ -1444,11 +1451,11 @@ const TabContent = ({
                 </div>
 
                 <div className="space-y-6">
-                  {/* {history.map((item, index) => (
+                  {history.map((item, index) => (
                     <div key={`item-${index}`} className="border-l border-white/10 pl-5 sm:pl-6 pb-6 relative">
                       <div className="absolute -left-1 top-0 w-2 h-2 bg-red-600 rounded-full shadow-[0_0_8px_rgba(220,38,38,0.5)]" />
                       <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-3 sm:mb-4">
-                        {item.date}
+                        {item.createdAt}
                       </p>
 
                       <div className="rounded-xl p-3.5 border transition-all bg-white/5 border-white/5 hover:bg-white/10">
@@ -1463,7 +1470,7 @@ const TabContent = ({
                         </div>
                       </div>
                     </div>
-                  ))} */}
+                  ))}
                 </div>
               </div>
             </div>
@@ -1825,7 +1832,7 @@ const TabContent = ({
                     </div>
                   ) : (
                     selectedEvents.map((event, index) => {
-                      const dateObj = new Date(event.event_datetime);
+                      const dateObj = event.event_datetime ? new Date(event.event_datetime) : null;
 
                       return (
                         <div
@@ -1853,12 +1860,15 @@ const TabContent = ({
 
                             <div className="flex items-center gap-2">
                               <span>📅</span>
-                              <span>{dateObj.toDateString()}</span>
+                              <span>
+                                {/* {dateObj.toDateString()} */}
+                                {dateObj && !isNaN(dateObj.getTime()) ? dateObj.toLocaleString() : "Invalid date"}
+                              </span>
                             </div>
 
                             <div className="flex items-center gap-2">
                               <span>⏰</span>
-                              <span>{dateObj.toLocaleTimeString()}</span>
+                              <span>{dateObj && !isNaN(dateObj.getTime()) ? dateObj.toLocaleString() : "Invalid date"}</span>
                             </div>
 
                             <div className="flex items-start gap-2">
@@ -2776,7 +2786,7 @@ const TabContent = ({
           ) : (
             loans.map((item, index) => (
               <div
-                key={item.id ?? index}
+                key={item.id}
                 className="bg-white rounded-3xl p-6 sm:p-6 border border-slate-100 shadow-sm hover:border-red-600 transition-all relative overflow-hidden group"
               >
                 <div className="flex justify-between items-start gap-4">
@@ -2982,10 +2992,10 @@ const TabContent = ({
                         htmlFor="liability_proof"
                         className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100"
                       >
-                        {selectedFile ? (
+                        {liabilityFile ? (
                           <>
                             <span className="text-xs font-bold text-emerald-600 uppercase">
-                              {selectedFile.name}
+                              {liabilityFile.name}
                             </span>
                             <span className="text-[10px] text-slate-400">
                               Click to change file
@@ -3017,6 +3027,7 @@ const TabContent = ({
                       </label>
                       <input
                         type="file"
+                        required
                         id="liability_proof"
                         name="file"
                         accept="image/*,application/pdf"
@@ -3024,7 +3035,7 @@ const TabContent = ({
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            setSelectedFile(file);
+                            setLiabilityFile(file);
                           }
                         }}
                       />

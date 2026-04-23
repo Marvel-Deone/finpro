@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react"
 import Header from "../components/header"
 import toast from "react-hot-toast"
 import { hasPermission, hasRole } from "@/utils/auth"
+import { Tab } from "@/types"
 
 const Settings = () => {
     const [mounted, setMounted] = useState(false)
@@ -15,6 +16,7 @@ const Settings = () => {
     const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
     const [loadingPersonnel, setLoadingPersonnel] = useState(false)
     const [loadingRole, setLoadingRole] = useState(false)
+    const [loadingModuleTabs, setLoadingModuleTabs] = useState(false)
     const [creatingPersonnel, setCreatingPersonnel] = useState(false)
     const [creatingRole, setCreatingRole] = useState(false)
     const [updatingRolePermission, setUpdatingRolePermission] = useState(false)
@@ -38,12 +40,16 @@ const Settings = () => {
     const [selectedRoleId, setSelectedRoleId] = useState("")
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
     const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+    const [deleteModuleTabModalOpen, setDeleteModuleTabModalOpen] = useState(false)
     const [entityToDelete, setEntityToDelete] = useState<string | null>(null)
+    const [moduleTabToDelete, setModuleTabToDelete] = useState<string | null>(null)
     const [deletingEntity, setDeletingEntity] = useState(false)
+    const [deletingModuleTab, setDeletingModuleTab] = useState(false)
     const [entityNameToDelete, setEntityNameToDelete] = useState("")
     const [roleName, setRoleName] = useState("")
     const [selectedEntity, setSelectedEntity] = useState<any | null>(null)
     const [entityDetailsOpen, setEntityDetailsOpen] = useState(false)
+    const [moduleTabs, setModuleTabs] = useState<Tab[]>([]);
 
     const [editName, setEditName] = useState("")
     const [editDescription, setEditDescription] = useState("")
@@ -82,6 +88,7 @@ const Settings = () => {
             fetchRoles()
             fetchPersonnel()
             fetchPermissions()
+            fetchModuleTabs()
         }
     }, [accessToken])
 
@@ -169,6 +176,24 @@ const Settings = () => {
             toast.error(err.message)
         } finally {
             setLoadingPersonnel(false)
+        }
+    }
+
+    const fetchModuleTabs = async () => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/module-tabs`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.message)
+
+            setModuleTabs(data)
+        } catch (err: any) {
+            toast.error(err.message || "Failed to fetch modules")
         }
     }
 
@@ -418,6 +443,7 @@ const Settings = () => {
         }
 
     }
+
     const saveRolePermissions = async () => {
         setUpdatingRolePermission(true);
         if (!selectedRoleId) {
@@ -485,6 +511,41 @@ const Settings = () => {
             toast.error(err.message)
         } finally {
             setDeletingEntity(false)
+        }
+
+    }
+
+    const deleteModuleTab = async () => {
+        if (!moduleTabToDelete) return
+
+        setDeletingModuleTab(true)
+
+        try {
+
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/module-tabs/${moduleTabToDelete}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`
+                    }
+                }
+            )
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.message)
+
+            toast.success("Module tab deleted")
+
+            fetchModuleTabs()
+
+            setDeleteModuleTabModalOpen(false)
+            setModuleTabToDelete(null)
+        } catch (err: any) {
+            toast.error(err.message)
+        } finally {
+            setDeletingModuleTab(false)
         }
 
     }
@@ -608,6 +669,7 @@ const Settings = () => {
 
                         </div>
                     )}
+
                     {/* ENTITIES */}
                     <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
                         <div className="p-6 border-b border-black/5">
@@ -730,6 +792,48 @@ const Settings = () => {
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* Modules Tab */}
+                <div className="bg-white rounded-3xl border border-black/5 shadow-sm">
+                    <div className="p-6 border-b border-black/5">
+                        <h3 className="font-black text-sm uppercase">
+                            Module Access Control
+                        </h3>
+                    </div>
+                    {loadingModuleTabs ? (
+                        <div className="p-6 text-sm text-slate-400">
+                            Loading module tabs...
+                        </div>) :
+                        (
+                            <div>
+                                {moduleTabs.map((moduleTab: any) => (
+                                    <div
+                                        key={moduleTab.id}
+                                        // onClick={() => openEntityDetails(entity)}
+                                        className="cursor-pointer group p-5 border-b border-slate-100 flex items-center justify-between hover:bg-slate-50 transition"
+                                    >
+                                        <span className="text-sm font-medium capitalize">
+                                            {moduleTab.module_name}
+                                        </span>
+
+                                        {hasPermission("SUBSIDIARY_DELETE") && (
+                                            <button
+                                                onClick={() => {
+                                                    setModuleTabToDelete(moduleTab.id)
+                                                    setDeleteModuleTabModalOpen(true)
+                                                }}
+                                                className="opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 text-red-500 hover:text-red-600
+  "
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash2 lucide-trash-2" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    }
                 </div>
             </div>
 
@@ -1427,6 +1531,39 @@ const Settings = () => {
                                 className="px-5 py-2 text-sm font-bold rounded-xl bg-red-600 text-white hover:bg-red-700"
                             >
                                 {deletingEntity ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {deleteModuleTabModalOpen && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center">
+                    <div className="bg-white rounded-3xl w-[420px] p-8 border border-black/5 shadow-xl">
+                        <h2 className="text-lg font-black mb-2">
+                            Delete Module Tab
+                        </h2>
+
+                        <p className="text-sm text-slate-500 mb-6">
+                            Are you sure you want to delete this module tab?
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setDeleteModuleTabModalOpen(false)
+                                    setModuleTabToDelete(null)
+                                }}
+                                className="px-5 py-2 text-sm font-bold rounded-xl border border-black/10 hover:bg-slate-100"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={deleteModuleTab}
+                                disabled={deletingModuleTab}
+                                className="px-5 py-2 text-sm font-bold rounded-xl bg-red-600 text-white hover:bg-red-700"
+                            >
+                                {deletingModuleTab ? "Deleting..." : "Delete"}
                             </button>
                         </div>
                     </div>
